@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+*.md
+*.json
+*.svg
+*.png
+*.jpg
+*.gif
+*.ico
