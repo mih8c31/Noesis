@@ -109,7 +109,7 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 - RLS ativo (anon retorna 0 linhas em todas as tabelas) ✅
 - 10 índices confirmados (pkey + 5 customizados) ✅
 - Storage buckets criados (documents, avatars) ✅
-- 13 table policies + 7 storage policies aplicadas ✅
+- 14 table policies + 7 storage policies aplicadas ✅
 
 **Escopo excluído desta sprint:**
 - pgvector / embeddings (Sprint 4)

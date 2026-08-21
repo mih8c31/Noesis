@@ -102,7 +102,7 @@ Documentação → Revisão → Aprovação → Implementação → Validação
 | `00004` | `create_libraries.sql` | Tabela libraries + RLS + índices |
 | `00005` | `create_documents_and_source_files.sql` | Tabelas documents + source_files + RLS + triggers + índices |
 | `00006` | `create_updated_at_triggers.sql` | Function + 3 triggers updated_at |
-| `00007` | `create_storage_buckets.sql` | 2 buckets + 6 storage policies |
+| `00007` | `create_storage_buckets.sql` | 2 buckets + 7 storage policies |
 
 ### Tabelas Criadas
 
@@ -142,8 +142,9 @@ Documentação → Revisão → Aprovação → Implementação → Validação
 | `idx_libraries_unique_default` | libraries | user_id WHERE is_default=true | Constraint de integridade |
 | `idx_documents_user_status` | documents | user_id, status | Filtro por status |
 | `idx_documents_user_library` | documents | user_id, library_id | Filtro por biblioteca |
-| `idx_documents_created_at` | documents | created_at DESC | Listagem cronológica |
-| `idx_source_files_document_id` | source_files | document_id | Lookup por documento + RLS JOIN |
+| `idx_documents_user_created` | documents | user_id, created_at DESC | Listagem cronológica |
+
+**NOTA:** `idx_source_files_document_id` foi removido — o UNIQUE constraint em `document_id` já cria índice implícito.
 
 ### Functions
 
@@ -189,6 +190,7 @@ Documentação → Revisão → Aprovação → Implementação → Validação
 | `storage_avatars_select_public` | avatars | SELECT | bucket_id = 'avatars' |
 | `storage_avatars_insert_own` | avatars | INSERT | folder[1] = auth.uid() |
 | `storage_avatars_delete_own` | avatars | DELETE | folder[1] = auth.uid() |
+| `storage_avatars_update_own` | avatars | UPDATE | folder[1] = auth.uid() |
 
 ### Decisões Tomadas nesta Sprint
 
@@ -213,7 +215,7 @@ Documentação → Revisão → Aprovação → Implementação → Validação
 
 7 migrations aplicadas com sucesso via `supabase db push`. Banco validado.
 
-### Validação do banco real (2026-08-19):
+### Validação do banco real (2026-08-21):
 
 | Verificação | Status |
 |---|---|
@@ -224,7 +226,7 @@ Documentação → Revisão → Aprovação → Implementação → Validação
 | RLS ativo (anon vê 0 linhas) | ✅ Funcionando |
 | 10 índices criados | ✅ Todos confirmados |
 | Storage buckets (documents, avatars) | ✅ Criados via migration |
-| 13 table RLS policies | ✅ Aplicadas |
+| 14 table RLS policies | ✅ Aplicadas |
 | 7 storage policies | ✅ Aplicadas |
 | Triggers (updated_at, validate_document_library, handle_new_user) | ✅ Aplicados |
 
@@ -235,3 +237,226 @@ Antes de iniciar, definir:
 - Modelo de embeddings (text-embedding-3-small)
 - Chunking strategy
 - Edge Function para proxy de IA
+
+---
+
+## Auditoria Final da Sprint 3 (2026-08-21)
+
+### 1. Projeto Supabase Conectado
+
+| Item | Valor |
+|---|---|
+| Project Ref | `kjphsqxtrlzvvkbczzwx` |
+| Project URL | `https://kjphsqxtrlzvvkbczzwx.supabase.co` |
+| Conexão CLI | `supabase link --project-ref kjphsqxtrlzvvkbczzwx` |
+| Credenciais CLI | Armazenadas em `~/.supabase/` (fora do repositório) |
+
+### 2. Migrations Aplicadas (ordem)
+
+| # | Migration | Status |
+|---|---|---|
+| 00001 | `enable_extensions.sql` | ✅ Aplicada |
+| 00002 | `create_enums.sql` | ✅ Aplicada (placeholder) |
+| 00003 | `create_profiles.sql` | ✅ Aplicada |
+| 00004 | `create_libraries.sql` | ✅ Aplicada |
+| 00005 | `create_documents_and_source_files.sql` | ✅ Aplicada |
+| 00006 | `create_updated_at_triggers.sql` | ✅ Aplicada |
+| 00007 | `create_storage_buckets.sql` | ✅ Aplicada |
+
+### 3. Tabelas Existentes (banco real)
+
+| Tabela | Colunas | Status |
+|---|---|---|
+| `profiles` | 6 (id, full_name, avatar_url, bio, created_at, updated_at) | ✅ Confirmada |
+| `libraries` | 10 (id, user_id, name, description, icon, color, is_default, sort_order, created_at, updated_at) | ✅ Confirmada |
+| `documents` | 25 (id, user_id, library_id, type, status, title, abstract, authors, publication_year, publisher, journal, volume, issue, doi, isbn, url, language, page_count, file_size_bytes, content_type, extracted_text, content_summary, tags, metadata, created_at, updated_at, processed_at) | ✅ Confirmada |
+| `source_files` | 7 (id, document_id, storage_bucket, file_path, mime_type, file_size, created_at) | ✅ Confirmada |
+
+### 4. ENUMs e CHECK Constraints
+
+**ENUMs:** Nenhum (estratégia TEXT+CHECK conforme decidido).
+
+**CHECK Constraints (5):**
+
+| Constraint | Tabela | Definição |
+|---|---|---|
+| `documents_type_check` | documents | `type IN ('article','book','chapter','thesis','other')` |
+| `documents_status_check` | documents | `status IN ('uploading','processing','ready','error')` |
+| `documents_title_check` | documents | `length(title) > 0 AND length(title) <= 500` |
+| `libraries_name_check` | libraries | `length(name) > 0 AND length(name) <= 255` |
+| `source_files_bucket_check` | source_files | `storage_bucket = 'documents'` |
+
+### 5. Índices (10)
+
+| Índice | Tabela | Colunas | Tipo |
+|---|---|---|---|
+| `documents_pkey` | documents | id | UNIQUE (PK) |
+| `idx_documents_user_status` | documents | user_id, status | INDEX |
+| `idx_documents_user_library` | documents | user_id, library_id | INDEX |
+| `idx_documents_user_created` | documents | user_id, created_at DESC | INDEX |
+| `libraries_pkey` | libraries | id | UNIQUE (PK) |
+| `idx_libraries_user_id` | libraries | user_id | INDEX |
+| `idx_libraries_unique_default` | libraries | user_id WHERE is_default=true | UNIQUE (partial) |
+| `profiles_pkey` | profiles | id | UNIQUE (PK) |
+| `source_files_pkey` | source_files | id | UNIQUE (PK) |
+| `source_files_document_id_key` | source_files | document_id | UNIQUE |
+
+**NOTA:** `idx_source_files_document_id` foi removido durante a validação — o UNIQUE constraint em `document_id` já cria índice implícito.
+
+### 6. Foreign Keys (5)
+
+| Constraint | Tabela | Coluna → Referência | ON DELETE |
+|---|---|---|---|
+| `profiles_id_fkey` | profiles | id → auth.users(id) | CASCADE |
+| `libraries_user_id_fkey` | libraries | user_id → profiles(id) | CASCADE |
+| `documents_user_id_fkey` | documents | user_id → profiles(id) | CASCADE |
+| `documents_library_id_fkey` | documents | library_id → libraries(id) | CASCADE |
+| `source_files_document_id_fkey` | source_files | document_id → documents(id) | CASCADE |
+
+### 7. Functions (3)
+
+| Function | Tipo | Security | search_path |
+|---|---|---|---|
+| `handle_new_user()` | TRIGGER FUNCTION | SECURITY DEFINER | public |
+| `update_updated_at_column()` | TRIGGER FUNCTION | SECURITY DEFINER | public |
+| `validate_document_library()` | TRIGGER FUNCTION | SECURITY DEFINER | public |
+
+### 8. Triggers (5)
+
+| Trigger | Tabela | Evento | Timing | Função |
+|---|---|---|---|---|
+| `on_auth_user_created` | auth.users | INSERT | AFTER | `handle_new_user()` |
+| `update_profiles_updated_at` | profiles | UPDATE | BEFORE | `update_updated_at_column()` |
+| `update_libraries_updated_at` | libraries | UPDATE | BEFORE | `update_updated_at_column()` |
+| `update_documents_updated_at` | documents | UPDATE | BEFORE | `update_updated_at_column()` |
+| `validate_document_library_trigger` | documents | INSERT OR UPDATE | BEFORE | `validate_document_library()` |
+
+**NOTA:** O `validate_document_library_trigger` aparece como 2 linhas no `information_schema.triggers` (uma para INSERT, outra para UPDATE), mas é um único trigger definido com `BEFORE INSERT OR UPDATE`.
+
+### 9. RLS Habilitado
+
+| Tabela | RLS |
+|---|---|
+| profiles | ✅ `rowsecurity = true` |
+| libraries | ✅ `rowsecurity = true` |
+| documents | ✅ `rowsecurity = true` |
+| source_files | ✅ `rowsecurity = true` |
+
+### 10. Table RLS Policies (14)
+
+| Tabela | SELECT | INSERT | UPDATE | DELETE |
+|---|---|---|---|---|
+| `profiles` | `id = auth.uid()` | `id = auth.uid()` | `id = auth.uid()` | Via CASCADE |
+| `libraries` | `user_id = auth.uid()` | `user_id = auth.uid()` | `user_id = auth.uid()` | `user_id = auth.uid()` |
+| `documents` | `user_id = auth.uid()` | `user_id = auth.uid()` | `user_id = auth.uid()` | `user_id = auth.uid()` |
+| `source_files` | JOIN documents | JOIN documents | **NÃO** | JOIN documents |
+
+### 11. Storage Buckets (2)
+
+| Bucket | Leitura | file_size_limit | MIME Types |
+|---|---|---|---|
+| `documents` | Privada (policy) | 50MB | application/pdf |
+| `avatars` | Pública (policy) | 5MB | image/jpeg, image/png, image/webp |
+
+### 12. Storage Policies (7)
+
+| Policy | Bucket | Operação | Condição |
+|---|---|---|---|
+| `storage_documents_select_own` | documents | SELECT | folder[1] = auth.uid() |
+| `storage_documents_insert_own` | documents | INSERT | folder[1] = auth.uid() |
+| `storage_documents_delete_own` | documents | DELETE | folder[1] = auth.uid() |
+| `storage_avatars_select_public` | avatars | SELECT | bucket_id = 'avatars' |
+| `storage_avatars_insert_own` | avatars | INSERT | folder[1] = auth.uid() |
+| `storage_avatars_delete_own` | avatars | DELETE | folder[1] = auth.uid() |
+| `storage_avatars_update_own` | avatars | UPDATE | folder[1] = auth.uid() |
+
+### 13. Configurações Adicionais (não previstas no plano original)
+
+| Configuração | Motivo | Impacto |
+|---|---|---|
+| `supabase init` → `supabase/config.toml` | Necessário para `supabase link` e `supabase db push` | Config padrão local, sem dados sensíveis |
+| `supabase link` → credenciais em `~/.supabase/` | Necessário para autenticar CLI com projeto remoto | Fora do repositório |
+| Supabase CLI install (`npm install -g supabase`) | Necessário para executar migrations | Dependência global |
+
+### 14. Arquivos Modificados/Criados durante Configuração
+
+| Arquivo | Ação | Sensível? |
+|---|---|---|
+| `.env.local` | Criado (credenciais Supabase) | ⚠️ SIM — gitignored |
+| `supabase/config.toml` | Criado por `supabase init` | Não (valores padrão) |
+| `supabase/.gitignore` | Criado por `supabase init` | Não |
+
+### 15. Alterações no Git
+
+| Commit | Descrição | Arquivos |
+|---|---|---|
+| `31c35e6` | Sprint 1-3: docs, auth, migrations | 67 files |
+| `9ae3508` | Sprint 3: execução real, docs atualizadas | 6 files |
+
+### 16. Commits Realizados
+
+| Hash | Data | Mensagem |
+|---|---|---|
+| `31c35e6` | 2026-08-20 | `feat: Sprint 1-3 complete — documentation, auth, database migrations` |
+| `9ae3508` | 2026-08-20 | `feat: Sprint 3 executed in real Supabase — 7 migrations applied, all tables verified` |
+
+### 17. Verificação do Commit 9ae3508
+
+O commit `9ae3508` contém:
+- `README.md` (atualizado)
+- `docs/PROJECT_STATE.md` (atualizado)
+- `docs/ROADMAP.md` (atualizado)
+- `docs/SECURITY.md` (atualizado)
+- `supabase/.gitignore` (criado)
+- `supabase/config.toml` (criado)
+
+**Status:** ✅ Este commit reflete o estado aprovado da Sprint 3 (com as correções de documentação aplicadas posteriormente).
+
+### 18. Alterações Locais Não Commitadas
+
+| Status |
+|---|
+| `git status`: **working tree clean** |
+| `git diff HEAD`: **vazio** |
+| Nenhuma alteração não commitada |
+
+### 19. Migrations Criadas/Alteradas Após Execução
+
+| Status |
+|---|
+| Nenhuma migration foi criada ou alterada após `supabase db push` |
+
+### 20. Divergências
+
+#### Banco Real vs Migrations: ✅ IDÊNTICO
+Todas as 7 migrations foram aplicadas fielmente. O `supabase_migrations.schema_migrations` confirma todas as 7 versões.
+
+#### Banco Real vs Documentação (PROJECT_STATE.md): ✅ CORRIGIDO
+Foram encontradas e corrigidas 5 divergências no PROJECT_STATE.md durante esta auditoria:
+
+| # | Divergência | Antes | Depois | Problema |
+|---|---|---|---|---|
+| 1 | Storage policies (linha 105) | "6 storage policies" | "7 storage policies" | Contagem incorreta — `storage_avatars_update_own` não contada |
+| 2 | Nome do índice (linha 145) | `idx_documents_created_at` | `idx_documents_user_created` | Nome incorref — índice foi renomeado para incluir user_id |
+| 3 | Índice removido (linha 146) | `idx_source_files_document_id` | Removido + nota | Índice foi removido mas documentação não atualizada |
+| 4 | Storage Policies table (linha 192) | Sem `storage_avatars_update_own` | Adicionada | Policy existente mas não documentada |
+| 5 | Table RLS policies count (linha 227) | "13 table policies" | "14 table policies" | Contagem incorreta |
+
+**ROADMAP.md** também foi corrigido: "13 table policies" → "14 table policies".
+
+#### Migrations vs Documentação: ✅ CONSISTENTE
+Após as correções acima, todas as outras documentações (DATABASE.md, SECURITY.md, ARCHITECTURE.md) estão consistentes com o estado real.
+
+### Verificação de Segurança
+
+| Verificação | Status |
+|---|---|
+| Frontend usa apenas `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` | ✅ Confirmado em `src/config/supabase.ts` |
+| Nenhuma `service_role` key no frontend | ✅ Nenhum match em `src/` |
+| Nenhuma chave de IA no repositório | ✅ Nenhum match de `sk-`, `sk-ant-`, `gsk_` |
+| Nenhuma senha ou token no repositório | ✅ Nenhum match de `sbp_`, `password`, `secret` |
+| `.env.local` gitignored | ✅ Confirmado via `git check-ignore` |
+| `.env.local` não rastreado pelo git | ✅ Confirmado via `git ls-files` |
+| `supabase/.temp` não commitado | ✅ Confirmado via `git ls-files` |
+| Credenciais Supabase CLI fora do repo | ✅ Armazenadas em `~/.supabase/` |
+| `supabase/config.toml` sem dados sensíveis | ✅ Apenas `project_id = "Noesis"` e config padrão |
