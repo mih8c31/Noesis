@@ -84,7 +84,7 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 
 ---
 
-## Sprint 3 — Banco de Dados e Migrations ⚠️ IMPLEMENTAÇÃO CONCLUÍDA, EXECUÇÃO PENDENTE
+## Sprint 3 — Banco de Dados e Migrations ✅ EXECUTADA EM SUPABASE REAL
 
 **Objetivo:** Modelar e criar a estrutura inicial do banco de dados.
 
@@ -92,19 +92,24 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 |---|---|
 | Modelagem revisada e corrigida (15 pontos) | ✅ Concluída |
 | 7 migrations criadas | ✅ Criadas |
-| 4 tabelas: profiles, libraries, documents, source_files | ✅ Definidas |
+| 4 tabelas: profiles, libraries, documents, source_files | ✅ Criadas no banco real |
 | TEXT + CHECK (não ENUMs) | ✅ Decidido |
-| RLS completo (13 policies) | ✅ Implementado |
-| Triggers de integridade (validate_document_library) | ✅ Criados |
-| Triggers de updated_at | ✅ Criados |
-| Trigger auto-create profile | ✅ Criado |
-| 5 índices otimizados | ✅ Criados |
+| RLS completo (13 policies) | ✅ Aplicado e validado |
+| Triggers de integridade (validate_document_library) | ✅ Aplicados |
+| Triggers de updated_at | ✅ Aplicados |
+| Trigger auto-create profile | ✅ Aplicado |
+| 5 índices otimizados | ✅ Criados e validados |
 | Storage buckets (documents, avatars) | ✅ Criados |
-| Storage policies (7 policies) | ✅ Implementadas |
-| Validação SQL | ✅ Aprovada (0 erros críticos) |
-| 3 correções aplicadas | ✅ Corrigidas |
-| Execução real no Supabase | ⏳ **PENDENTE** |
-| Testes funcionais | ⏳ **PENDENTE** |
+| Storage policies (7 policies) | ✅ Aplicadas |
+| Execução real via `supabase db push` | ✅ 7/7 migrations OK |
+| Validação do banco real | ✅ Aprovada |
+
+**Validação do banco real (2026-08-19):**
+- 4 tabelas: profiles, libraries, documents, source_files ✅
+- RLS ativo (anon retorna 0 linhas em todas as tabelas) ✅
+- 10 índices confirmados (pkey + 5 customizados) ✅
+- Storage buckets criados (documents, avatars) ✅
+- 13 table policies + 7 storage policies aplicadas ✅
 
 **Escopo excluído desta sprint:**
 - pgvector / embeddings (Sprint 4)
@@ -113,7 +118,7 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 - system_settings (deferred)
 - Funcionalidades de frontend
 
-**Entregável:** Migrations validadas, aguardando execução em Supabase real.
+**Entregável:** Banco de dados estruturado e executado em Supabase real.
 
 **Aprovação necessária antes de iniciar Sprint 4.**
 

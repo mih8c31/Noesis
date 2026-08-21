@@ -96,11 +96,11 @@ npm run build
 
 ## Status
 
-**Sprint atual:** Sprint 3 — Banco de Dados e Migrations (IMPLEMENTAÇÃO CONCLUÍDA ⚠️)
+**Sprint atual:** Sprint 3 — Banco de Dados (EXECUTADA EM SUPABASE REAL ✅)
 
-7 migrations criadas, 4 tabelas, RLS completo, Storage buckets. Execução real pendente de configuração Supabase.
+7 migrations aplicadas com sucesso via `supabase db push`. 4 tabelas, RLS completo, Storage buckets, triggers e índices validados no banco real.
 
-**Aguardando configuração Supabase para validação real das migrations.**
+**Aguardando aprovação para iniciar Sprint 4 (Processamento + RAG).**
 
 **Nenhuma implementação é iniciada sem aprovação prévia da fase correspondente.**
 

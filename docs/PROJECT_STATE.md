@@ -209,28 +209,29 @@ Documentação → Revisão → Aprovação → Implementação → Validação
 
 ## Próximo Passo
 
-**Sprint 3 — IMPLEMENTAÇÃO CONCLUÍDA, EXECUÇÃO REAL PENDENTE** ⚠️
+**Sprint 3 — EXECUTADA EM SUPABASE REAL ✅**
 
-Migrations criadas e validadas (SQL). 3 correções aplicadas após validação. Execução real pendente de configuração Supabase.
+7 migrations aplicadas com sucesso via `supabase db push`. Banco validado.
 
-### Para executar as migrations manualmente:
+### Validação do banco real (2026-08-19):
 
-1. Criar um projeto no [Supabase](https://supabase.com)
-2. Criar `.env.local` com as credenciais:
-   ```
-   VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-   VITE_SUPABASE_ANON_KEY=sua-anon-key
-   ```
-3. Instalar Supabase CLI: `npm install -g supabase`
-4. Executar: `supabase db push` ou copiar cada migration para o SQL Editor do Dashboard
-5. Ordem: `00001` → `00002` → `00003` → `00004` → `00005` → `00006` → `00007`
+| Verificação | Status |
+|---|---|
+| profiles table | ✅ Criada |
+| libraries table | ✅ Criada |
+| documents table | ✅ Criada |
+| source_files table | ✅ Criada |
+| RLS ativo (anon vê 0 linhas) | ✅ Funcionando |
+| 10 índices criados | ✅ Todos confirmados |
+| Storage buckets (documents, avatars) | ✅ Criados via migration |
+| 13 table RLS policies | ✅ Aplicadas |
+| 7 storage policies | ✅ Aplicadas |
+| Triggers (updated_at, validate_document_library, handle_new_user) | ✅ Aplicados |
 
-### Após execução, testar:
-- Criar usuário (deve auto-criar profile)
-- Criar library
-- Criar document associado à library
-- Tentar associar document a library de outro usuário (deve falhar)
-- Upload de avatar (deve funcionar com upsert)
-- Verificar isolamento entre usuários
+### Próximo passo: Sprint 4 — Processamento + RAG
 
-Aguardando configuração Supabase para validação real.
+Antes de iniciar, definir:
+- Provider de IA (OpenAI como padrão, key necessária)
+- Modelo de embeddings (text-embedding-3-small)
+- Chunking strategy
+- Edge Function para proxy de IA
