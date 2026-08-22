@@ -1,7 +1,7 @@
 # Estado do Projeto — Noesis
 
 > **Última atualização:** 2026-08-22  
-> **Status geral:** Sprint 4.2 concluída (diagnóstico funcional pós-deploy). Deploy validado em GitHub Pages. Aguardando aprovação para Sprint 5.
+> **Status geral:** Sprint 5 concluída (Leitor de PDF). Deploy validado em GitHub Pages.
 
 ---
 
@@ -36,7 +36,11 @@
 | Documentos CRUD + UI | ✅ Implementado (Sprint 4) |
 | pgvector extension | ✅ Habilitado (Sprint 4) |
 | document_chunks + RLS + índices | ✅ Implementados (Sprint 4) |
-| Funcionalidades de negócio (IA) | ⏳ Sprint 5+ |
+| Leitor PDF (pdfjs-dist canvas) | ✅ Implementado (Sprint 5) |
+| Progresso de leitura + sessões | ✅ Implementado (Sprint 5) |
+| Bookmarks por página | ✅ Implementado (Sprint 5) |
+| Tabela de conteúdo (TOC) | ✅ Implementado (Sprint 5) |
+| Funcionalidades de negócio (IA) | ⏳ Sprint 6+ |
 | Deploy | ⏳ Sprint 13 |
 
 ---
@@ -55,7 +59,7 @@
 | Integridade documents↔libraries | Trigger validate_document_library | 2026-08-20 |
 | Profiles SELECT | Restrito ao dono (não público) | 2026-08-20 |
 | source_files UPDATE | NÃO permitido (arquivos imutáveis) | 2026-08-20 |
-| Migrations | 7 migrations sequenciais | 2026-08-20 |
+| Migrations | 13 migrations sequenciais | 2026-08-20 |
 | Storage via migrations | Criado via SQL (versionado) | 2026-08-20 |
 | is_default libraries | Partial unique index | 2026-08-20 |
 
@@ -74,7 +78,7 @@
 | `docs/PROJECT_STATE.md` | Este arquivo | ✅ Atualizado (Sprint 4) |
 | `.env.example` | Template de variáveis de ambiente | ✅ Criado |
 | `.gitignore` | Arquivos ignorados pelo Git | ✅ Criado |
-| `supabase/migrations/*.sql` | 11 migrations do banco | ✅ Criadas (Sprint 3-4.2) |
+| `supabase/migrations/*.sql` | 13 migrations do banco | ✅ Criadas (Sprint 3-5) |
 
 ---
 
@@ -399,6 +403,78 @@ Antes de iniciar, definir:
 | Deploy GitHub Pages | ✅ Funcional |
 
 ### Próximo passo: Sprint 5 — Leitor de PDF
+
+---
+
+## Sprint 5 — Leitor de PDF ✅ CONCLUÍDA
+
+**Objetivo:** Leitor de PDF completo com progresso, marcadores e navegação.
+
+### Migrations Criadas
+
+| # | Arquivo | Conteúdo |
+|---|---|---|
+| `00012` | `create_reading_sessions.sql` | Tabela reading_sessions + RLS + índices + trigger |
+| `00013` | `create_session_bookmarks.sql` | Tabela session_bookmarks + RLS + índices |
+
+### Tabelas Criadas
+
+| Tabela | Colunas | RLS Policies |
+|---|---|---|
+| `reading_sessions` | 9 (id, document_id, user_id, started_at, ended_at, duration_sec, pages_read, progress_pct, last_position, created_at, updated_at) | 4 policies (SELECT, INSERT, UPDATE, DELETE via user_id) |
+| `session_bookmarks` | 6 (id, session_id, page_number, position_pct, label, created_at) | 4 policies (SELECT, INSERT, UPDATE, DELETE via reading_sessions JOIN) |
+
+### Dependências Existentes
+
+| Pacote | Versão | Uso |
+|---|---|---|
+| `pdfjs-dist` | 6.2.108 | Renderização canvas do PDF |
+| `zustand` | 5.x | Estado global do reader |
+
+### Arquivos Criados/Modificados
+
+| Arquivo | Ação |
+|---|---|
+| `src/features/reader/types.ts` | Criado: ReadingSession, Bookmark, TocItem |
+| `src/features/reader/services/readingService.ts` | Criado: createReadingSession, getReadingSession, updateReadingSession |
+| `src/features/reader/services/bookmarkService.ts` | Criado: createBookmark, getBookmarks, deleteBookmark |
+| `src/features/reader/utils/pdfUtils.ts` | Criado: loadPdfDocument, renderPageToCanvas, extractToc, calculateProgress |
+| `src/features/reader/hooks/useReadingSession.ts` | Criado: sessão de leitura com progress tracking |
+| `src/features/reader/hooks/useBookmarks.ts` | Criado: CRUD de bookmarks |
+| `src/features/reader/components/PageNavigation.tsx` | Criado: navegação entre páginas |
+| `src/features/reader/components/ZoomControl.tsx` | Criado: controle de zoom (50-200%) |
+| `src/features/reader/components/PdfViewer.tsx` | Criado: canvas de renderização do PDF |
+| `src/features/reader/components/BookmarkList.tsx` | Criado: lista de bookmarks com navegação |
+| `src/features/reader/components/TableOfContents.tsx` | Criado: TOC extraído do outline do PDF |
+| `src/features/reader/components/ReaderSidebar.tsx` | Criado: sidebar com bookmarks + TOC |
+| `src/features/reader/components/ReaderToolbar.tsx` | Criado: toolbar com zoom, paginação, progresso |
+| `src/features/reader/pages/ReaderPage.tsx` | Criado: página fullscreen do leitor |
+| `src/store/readerStore.ts` | Criado: Zustand store do reader |
+| `src/routes/index.tsx` | Modificado: adicionada rota `/reader/:id` |
+| `src/features/documents/pages/DocumentDetailPage.tsx` | Modificado: adicionado botão "Ler documento" |
+
+### Decisões Tomadas nesta Sprint
+
+| Decisão | Motivo |
+|---|---|
+| pdfjs-dist direto (não react-pdf) | Renderização canvas nativa; sem overhead de wrapper; controle total |
+| Zustand para estado do reader | Compartilhamento eficiente entre componentes; sem prop drilling |
+| Tabelas separadas (reading_sessions + session_bookmarks) | Normalização adequada; RLS mais granular; bookmarks independentes |
+| Layout fullscreen (sem MainLayout) | Leitura imersiva sem distrações; toolbar integrada |
+| Debounce 2s para progress save | Evita uploads excessivos ao Supabase |
+| Progress tracking via pages_read[] | Array de páginas visitadas; cálculo de % baseado na última página |
+
+### Validação
+
+| Verificação | Status |
+|---|---|
+| `npm run lint` | ✅ 0 errors, 0 warnings |
+| `npx tsc --noEmit` | ✅ Sem erros |
+| `npm run test` | ✅ 25 testes passando (6 arquivos) |
+| `npm run build` | ✅ Build produzido (989.23 kB gzip 289.83 kB) |
+| Migrations aplicadas | ✅ 13/13 migrations (00012 + 00013) |
+
+### Próximo passo: Sprint 6 — Chat IA + RAG
 
 ---
 

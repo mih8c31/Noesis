@@ -526,8 +526,8 @@ interface TranslationCache {
 | 6 | `documents` | Supabase | ✅ Implementada (Sprint 3) |
 | 7 | `source_files` | Supabase | ✅ Implementada (Sprint 3) |
 | 8 | `document_chunks` | Supabase | ✅ Implementados (Sprint 4) |
-| 9 | `reading_sessions` | Supabase | ⏳ Sprint 5 |
-| 10 | `session_bookmarks` | Supabase | ⏳ Sprint 5 |
+| 9 | `reading_sessions` | Supabase | ✅ Implementada (Sprint 5) |
+| 10 | `session_bookmarks` | Supabase | ✅ Implementada (Sprint 5) |
 | 11 | `conversations` | Supabase | ⏳ Sprint 6 |
 | 12 | `messages` | Supabase | ⏳ Sprint 6 |
 | 13 | `fichamentos` | Supabase | ⏳ Sprint 9 |

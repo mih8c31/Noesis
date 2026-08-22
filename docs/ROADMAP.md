@@ -1,6 +1,6 @@
 # Roadmap de Implementação — Noesis
 
-> **Última atualização:** 2026-08-21  
+> **Última atualização:** 2026-08-22  
 > **Regra:** Cada sprint é apresentada para revisão e aprovação antes de prosseguir.
 
 ---
@@ -12,7 +12,7 @@ Sprint 1  ████████░░░░░░░░░░░░░░░�
 Sprint 2  ░░░░████████░░░░░░░░░░░░  Setup + Autenticação ✅
 Sprint 3  ░░░░░░░░████████░░░░░░░░  Banco de Dados + Migrations ✅
 Sprint 4  ░░░░░░░░░░░░████████░░░░  Processamento + RAG Prep ✅
-Sprint 5  ░░░░░░░░░░░░░░░░████████  Chat IA + Voz
+Sprint 5  ░░░░░░░░░░░░░░░░████████  Leitor PDF ✅
 Sprint 6  ░░░░░░░░░░░░░░░░░░░░████  Embeddings + RAG
 Sprint 7  ░░░░░░░░░░░░░░░░░░░░░░██  Leitor
 Sprint 8  ░░░░░░░░░░░░░░░░░░░░░░░█  Anotações + Fichamentos
@@ -192,19 +192,26 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 
 ---
 
-## Sprint 5 — Leitor
+## Sprint 5 — Leitor PDF ✅ CONCLUÍDA
 
 **Objetivo:** Leitor de PDF completo com progresso e marcadores.
 
-| Tarefa | Descrição |
+| Tarefa | Status |
 |---|---|
-| PDF Viewer | react-pdf ou pdf.js para visualização |
-| Progresso de leitura | Tracking de página atual e porcentagem |
-| Marcadores | Bookmarks por página com labels |
-| Sessões de leitura | Registro de sessões com duração e progresso |
-| Migrations | `reading_sessions`, `session_bookmarks` |
+| PDF Viewer (pdfjs-dist canvas) | ✅ Concluída |
+| Progresso de leitura (tracking) | ✅ Concluída |
+| Marcadores (bookmarks por página) | ✅ Concluídas |
+| Sessões de leitura (duração + progresso) | ✅ Concluídas |
+| Migrations (reading_sessions, session_bookmarks) | ✅ Criadas e aplicadas |
+| Tabela de conteúdo (TOC) | ✅ Concluída |
+| Zoom + paginação | ✅ Concluídas |
+| Layout fullscreen | ✅ Concluído |
+| Rota /reader/:id | ✅ Integrada |
+| Botão "Ler documento" | ✅ Integrado |
 
-**Entregável:** Leitor funcional com progresso e marcadores.
+**Validação:** lint ✅ | typecheck ✅ | 25 testes ✅ | build ✅
+
+**Próximo:** Sprint 6 — Chat IA + RAG.
 
 ---
 
@@ -344,4 +351,7 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 - Nenhum sprint é iniciado sem aprovação do anterior
 - Sprint 1 (documentação) concluída ✅
 - Sprint 2 (setup + autenticação) concluída ✅
-- Sprint 3 (banco de dados + migrations) concluída ✅ — aguardando aprovação para Sprint 4
+- Sprint 3 (banco de dados + migrations) concluída ✅
+- Sprint 4 (processamento + RAG prep) concluída ✅
+- Sprint 4.2 (diagnóstico pós-deploy) concluída ✅
+- Sprint 5 (leitor PDF) concluída ✅ — aguardando aprovação para Sprint 6

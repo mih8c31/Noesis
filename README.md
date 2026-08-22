@@ -96,11 +96,11 @@ npm run build
 
 ## Status
 
-**Sprint atual:** Sprint 4.2 — Diagnóstico Funcional Pós-Deploy ✅
+**Sprint atual:** Sprint 5 — Leitor de PDF ✅
 
-6 bugs identificados e corrigidos: navegação pós-login, VITE_APP_URL em produção, autoconfirm habilitado, library padrão criada, mapeamento de erros de auth, DocumentsPage com library_id dinâmico.
+Leitor de PDF completo com pdfjs-dist (canvas rendering), progresso de leitura, bookmarks, sessões de tracking, tabela de conteúdo, zoom e navegação. Rota `/reader/:id` fullscreen.
 
-**Aguardando aprovação para iniciar Sprint 5 (Leitor de PDF).**
+**Aguardando aprovação para iniciar Sprint 6 (Chat IA + RAG).**
 
 **Nenhuma implementação é iniciada sem aprovação prévia da fase correspondente.**
 

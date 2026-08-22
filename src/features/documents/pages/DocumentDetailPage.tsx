@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Loader2, FileText, Calendar, Users, BookOpen } from 'lucide-react';
+import { ArrowLeft, Loader2, FileText, Calendar, Users, BookOpen, Eye } from 'lucide-react';
 import { Button } from '@/core/ui/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/ui/ui/card';
 import { getDocument } from '../services/documentService';
@@ -78,7 +78,7 @@ export function DocumentDetailPage() {
 
       <div className="flex items-start gap-4">
         <FileText className="h-10 w-10 text-muted-foreground shrink-0" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">{document.title}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <span>{typeLabels[document.type]}</span>
@@ -92,6 +92,15 @@ export function DocumentDetailPage() {
             )}
           </div>
         </div>
+        {document.status === 'ready' && (
+          <Button
+            onClick={() => navigate(`/reader/${document.id}`)}
+            className="shrink-0"
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            Ler documento
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
