@@ -96,11 +96,11 @@ npm run build
 
 ## Status
 
-**Sprint atual:** Sprint 3 — Banco de Dados (EXECUTADA EM SUPABASE REAL ✅)
+**Sprint atual:** Sprint 4.2 — Diagnóstico Funcional Pós-Deploy ✅
 
-7 migrations aplicadas com sucesso via `supabase db push`. 4 tabelas, RLS completo, Storage buckets, triggers e índices validados no banco real.
+6 bugs identificados e corrigidos: navegação pós-login, VITE_APP_URL em produção, autoconfirm habilitado, library padrão criada, mapeamento de erros de auth, DocumentsPage com library_id dinâmico.
 
-**Aguardando aprovação para iniciar Sprint 4 (Processamento + RAG).**
+**Aguardando aprovação para iniciar Sprint 5 (Leitor de PDF).**
 
 **Nenhuma implementação é iniciada sem aprovação prévia da fase correspondente.**
 

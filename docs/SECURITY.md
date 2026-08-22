@@ -377,4 +377,4 @@ SELECT * FROM documents; -- Retorna apenas documentos do usuário A
 
 Esta documentação foi revisada e validada como parte das Sprints 1, 2 e 3.
 
-**Status:** Executada em Supabase real na Sprint 3 (RLS validado em 4 tabelas, 13 policies de tabela + 7 policies de storage aplicadas).
+**Status:** Executada em Supabase real na Sprint 3 (RLS validado em 5 tabelas, 17 policies de tabela + 7 policies de storage aplicadas). Sprint 4.2: `mailer_autoconfirm` habilitado para dev/teste.

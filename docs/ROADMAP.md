@@ -152,7 +152,43 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 
 **Entregável:** Upload de PDF com extração de texto, chunking e armazenamento completo.
 
-**Próximo:** Sprint 5 — Chat com IA + Voz.
+**Próximo:** Sprint 4.2 — Diagnóstico Funcional Pós-Deploy.
+
+---
+
+## Sprint 4.2 — Diagnóstico Funcional Pós-Deploy ✅ CONCLUÍDA
+
+**Objetivo:** Diagnosticar e corrigir problemas que impediam o fluxo completo da aplicação após deploy.
+
+| Problema | Severidade | Correção | Status |
+|---|---|---|---|
+| Sem navegação pós-login | Crítico | `navigate('/dashboard')` no LoginForm e RegisterForm | ✅ |
+| `VITE_APP_URL` apontava para localhost | Médio | Criado `.env.production` com URL de produção | ✅ |
+| `mailer_autoconfirm: false` | Médio | Habilitado via Management API | ✅ |
+| `library_id` hardcoded `'default'` | Baixo | DocumentsPage busca library padrão via query | ✅ |
+| Nenhuma library existente | Baixo | Trigger `handle_new_user` atualizado + library criada | ✅ |
+| Erros de auth genéricos | Baixo | `getAuthErrorMessage` mapeia mensagens do Supabase SDK | ✅ |
+
+**Arquivos modificados:**
+- `src/features/auth/components/LoginForm.tsx` — navegação pós-login
+- `src/features/auth/components/RegisterForm.tsx` — navegação pós-cadastro
+- `src/features/auth/components/ForgotPasswordForm.tsx` — sem alteração
+- `src/core/lib/errors.ts` — mapeamento de erros de auth
+- `src/features/documents/pages/DocumentsPage.tsx` — library_id dinâmico
+- `.env.production` — URL de produção
+- `.env.example` — documentação de ambientes
+- `supabase/migrations/00011_create_default_library_and_update_trigger.sql` — migration
+
+**Configurações Supabase alteradas:**
+- `mailer_autoconfirm: true` (habilitado para dev/teste)
+
+**Banco de dados alterado:**
+- `handle_new_user()` atualizado: cria library padrão "Minha Biblioteca" junto com profile
+- Library padrão criada para usuário existente
+
+**Validação:** lint ✅ | typecheck ✅ | 25 testes ✅ | build ✅
+
+**Próximo:** Sprint 5 — Leitor de PDF.
 
 ---
 

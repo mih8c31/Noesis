@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useAuth } from '@/core/auth/hooks/useAuth';
 import { Button } from '@/core/ui/ui/button';
 import { Input } from '@/core/ui/ui/input';
@@ -9,6 +9,7 @@ import { getAuthErrorMessage } from '@/core/lib/errors';
 
 export function LoginForm() {
   const { signIn, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -20,6 +21,7 @@ export function LoginForm() {
       toast.error(getAuthErrorMessage(result.error));
     } else {
       toast.success('Login realizado com sucesso!');
+      navigate('/dashboard');
     }
   }
 

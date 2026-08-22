@@ -3,14 +3,32 @@ import { Plus, Loader2, FolderOpen } from 'lucide-react';
 import { Button } from '@/core/ui/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/ui/ui/card';
 import type { Document } from '@/core/types/documents';
+import { useAuth } from '@/core/auth/hooks/useAuth';
+import { supabase } from '@/config/supabase';
 import { useDocuments } from '../hooks/useDocuments';
 import { DocumentCard } from '../components/DocumentCard';
 import { DocumentUpload } from '../components/DocumentUpload';
 
 export function DocumentsPage() {
+  const { user } = useAuth();
   const { documents, total, isLoading, error, loadDocuments, removeDocument } = useDocuments();
   const [showUpload, setShowUpload] = useState(false);
-  const [libraryId] = useState<string>('default');
+  const [libraryId, setLibraryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchDefaultLibrary() {
+      if (!user) return;
+      const { data } = await supabase
+        .from('libraries')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+      if (data) setLibraryId(data.id);
+    }
+    fetchDefaultLibrary();
+  }, [user]);
 
   useEffect(() => {
     loadDocuments();
@@ -31,13 +49,13 @@ export function DocumentsPage() {
             {total} {total === 1 ? 'documento' : 'documentos'}
           </p>
         </div>
-        <Button onClick={() => setShowUpload(!showUpload)}>
+        <Button onClick={() => setShowUpload(!showUpload)} disabled={!libraryId}>
           <Plus className="h-4 w-4 mr-2" />
           Novo Documento
         </Button>
       </div>
 
-      {showUpload && (
+      {showUpload && libraryId && (
         <DocumentUpload
           libraryId={libraryId}
           onUploadComplete={() => {

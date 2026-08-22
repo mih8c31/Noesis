@@ -1450,7 +1450,7 @@ docs/
 ---
 
 ## Validação
-> **Status:** Atualizada nas Sprints 1, 2, 3 e 4  
+> **Status:** Atualizada nas Sprints 1, 2, 3, 4 e 4.2  
 
-> **Sprint 4:** Processamento PDF + RAG prep implementados  
+> **Sprint 4.2:** Diagnóstico funcional pós-deploy — correções de navegação, env vars, autoconfirm, library padrão, erros de auth  
 > **Cada sprint será apresentada para revisão antes de prosseguir**

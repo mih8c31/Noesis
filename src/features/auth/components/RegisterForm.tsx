@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useAuth } from '@/core/auth/hooks/useAuth';
 import { Button } from '@/core/ui/ui/button';
 import { Input } from '@/core/ui/ui/input';
@@ -9,6 +9,7 @@ import { getAuthErrorMessage } from '@/core/lib/errors';
 
 export function RegisterForm() {
   const { signUp, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +33,8 @@ export function RegisterForm() {
     if (result.error) {
       toast.error(getAuthErrorMessage(result.error));
     } else {
-      toast.success('Conta criada! Verifique seu email para confirmar.');
+      toast.success('Conta criada com sucesso!');
+      navigate('/dashboard');
     }
   }
 

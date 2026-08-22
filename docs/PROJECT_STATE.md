@@ -1,7 +1,7 @@
 # Estado do Projeto — Noesis
 
-> **Última atualização:** 2026-08-21  
-> **Status geral:** Sprint 4 concluída (processamento de PDF + RAG prep). Aguardando aprovação.
+> **Última atualização:** 2026-08-22  
+> **Status geral:** Sprint 4.2 concluída (diagnóstico funcional pós-deploy). Deploy validado em GitHub Pages. Aguardando aprovação para Sprint 5.
 
 ---
 
@@ -74,7 +74,7 @@
 | `docs/PROJECT_STATE.md` | Este arquivo | ✅ Atualizado (Sprint 4) |
 | `.env.example` | Template de variáveis de ambiente | ✅ Criado |
 | `.gitignore` | Arquivos ignorados pelo Git | ✅ Criado |
-| `supabase/migrations/*.sql` | 10 migrations do banco | ✅ Criadas (Sprint 3-4) |
+| `supabase/migrations/*.sql` | 11 migrations do banco | ✅ Criadas (Sprint 3-4.2) |
 
 ---
 
@@ -342,7 +342,63 @@ Antes de iniciar, definir:
 
 **NOTA:** Chunk do bundle >500 kB devido ao pdfjs-dist. Code-splitting será avaliado no futuro.
 
-### Próximo passo: Sprint 5 — Chat com IA + Voz
+### Próximo passo: Sprint 4.2 — Diagnóstico Funcional Pós-Deploy
+
+---
+
+## Sprint 4.2 — Diagnóstico Funcional Pós-Deploy ✅ CONCLUÍDA
+
+**Objetivo:** Diagnosticar e corrigir problemas que impediam o fluxo completo da aplicação após deploy em GitHub Pages.
+
+### Problemas Identificados e Corrigidos
+
+| # | Problema | Severidade | Arquivo | Correção | Status |
+|---|---|---|---|---|---|
+| 1 | Sem navegação pós-login | Crítico | `LoginForm.tsx`, `RegisterForm.tsx` | `useNavigate()` + `navigate('/dashboard')` | ✅ |
+| 2 | `VITE_APP_URL=localhost` no build | Médio | `.env.production` | Criado com URL de produção | ✅ |
+| 3 | `mailer_autoconfirm: false` | Médio | Supabase Dashboard | Habilitado via Management API | ✅ |
+| 4 | `library_id='default'` hardcoded | Baixo | `DocumentsPage.tsx` | Query dinâmica para library padrão | ✅ |
+| 5 | Nenhuma library existente | Baixo | `handle_new_user()` | Trigger atualizado + library criada | ✅ |
+| 6 | Erros de auth genéricos | Baixo | `errors.ts` | Mapeamento de mensagens Supabase SDK | ✅ |
+
+### Configurações Supabase Alteradas
+
+| Configuração | Antes | Depois |
+|---|---|---|
+| `mailer_autoconfirm` | `false` | `true` |
+
+### Banco de Dados Alterado
+
+| Mudança | Detalhe |
+|---|---|
+| `handle_new_user()` atualizado | Cria library padrão "Minha Biblioteca" junto com profile |
+| Library padrão criada | Para o usuário existente (`x3x31@hotmail.com`) |
+
+### Arquivos Modificados/Criados
+
+| Arquivo | Ação |
+|---|---|
+| `src/features/auth/components/LoginForm.tsx` | Modificado: adicionado `useNavigate` + `navigate('/dashboard')` |
+| `src/features/auth/components/RegisterForm.tsx` | Modificado: adicionado `useNavigate` + `navigate('/dashboard')` |
+| `src/core/lib/errors.ts` | Modificado: `getAuthErrorMessage` aceita mensagens do Supabase SDK |
+| `src/features/documents/pages/DocumentsPage.tsx` | Modificado: busca library padrão via query em vez de hardcoded |
+| `.env.production` | Criado: `VITE_APP_URL=https://mih8c31.github.io/Noesis` |
+| `.env.example` | Modificado: documentação de ambientes |
+| `supabase/migrations/00011_create_default_library_and_update_trigger.sql` | Criado: migration para library padrão |
+
+### Validação
+
+| Verificação | Status |
+|---|---|
+| `npm run lint` | ✅ 0 errors, 0 warnings |
+| `npx tsc -b` | ✅ Sem erros |
+| `npm run test` | ✅ 25 testes passando (6 arquivos) |
+| `npm run build` | ✅ 973.57 kB (gzip 286.17 kB) |
+| `VITE_APP_URL` no build | ✅ `https://mih8c31.github.io/Noesis` |
+| `localhost:5173` no build | ✅ Removido |
+| Deploy GitHub Pages | ✅ Funcional |
+
+### Próximo passo: Sprint 5 — Leitor de PDF
 
 ---
 
