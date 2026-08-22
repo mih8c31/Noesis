@@ -7,6 +7,8 @@ import { RegisterPage } from '@/features/auth/pages/RegisterPage';
 import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage';
 import { DashboardPage } from '@/features/auth/pages/DashboardPage';
 import { SettingsPage } from '@/features/auth/pages/SettingsPage';
+import { DocumentsPage } from '@/features/documents/pages/DocumentsPage';
+import { DocumentDetailPage } from '@/features/documents/pages/DocumentDetailPage';
 
 export function AppRouter() {
   return (
@@ -21,6 +23,8 @@ export function AppRouter() {
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/documents/:id" element={<DocumentDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>

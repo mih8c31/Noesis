@@ -1,7 +1,7 @@
 # Estado do Projeto — Noesis
 
-> **Última atualização:** 2026-08-20  
-> **Status geral:** Sprint 3 concluída (banco de dados + migrations). Aguardando aprovação.
+> **Última atualização:** 2026-08-21  
+> **Status geral:** Sprint 4 concluída (processamento de PDF + RAG prep). Aguardando aprovação.
 
 ---
 
@@ -31,7 +31,12 @@
 | Banco de dados + Migrations | ✅ Implementados (Sprint 3) |
 | Storage buckets + policies | ✅ Implementados (Sprint 3) |
 | RLS completo (4 tabelas) | ✅ Implementado (Sprint 3) |
-| Funcionalidades de negócio | ⏳ Sprint 4+ |
+| Processamento PDF (pdfjs-dist) | ✅ Implementado (Sprint 4) |
+| Chunking + Storage + Services | ✅ Implementados (Sprint 4) |
+| Documentos CRUD + UI | ✅ Implementado (Sprint 4) |
+| pgvector extension | ✅ Habilitado (Sprint 4) |
+| document_chunks + RLS + índices | ✅ Implementados (Sprint 4) |
+| Funcionalidades de negócio (IA) | ⏳ Sprint 5+ |
 | Deploy | ⏳ Sprint 13 |
 
 ---
@@ -61,15 +66,15 @@
 | Arquivo | Descrição | Status |
 |---|---|---|
 | `README.md` | Visão geral do projeto | ✅ Atualizado (Sprint 3) |
-| `docs/ARCHITECTURE.md` | Arquitetura completa do sistema | ✅ Atualizado (Sprint 3) |
-| `docs/DATABASE.md` | Modelagem do banco de dados | ✅ Atualizado (Sprint 3) |
+| `docs/ARCHITECTURE.md` | Arquitetura completa do sistema | ✅ Atualizado (Sprint 4) |
+| `docs/DATABASE.md` | Modelagem do banco de dados | ✅ Atualizado (Sprint 4) |
 | `docs/CONVENTIONS.md` | Padrões e convenções de desenvolvimento | ✅ Atualizado (Sprint 2) |
 | `docs/SECURITY.md` | Diretrizes de segurança | ✅ Atualizado (Sprint 3) |
-| `docs/ROADMAP.md` | Roadmap de sprints | ✅ Atualizado (Sprint 3) |
-| `docs/PROJECT_STATE.md` | Este arquivo | ✅ Atualizado (Sprint 3) |
+| `docs/ROADMAP.md` | Roadmap de sprints | ✅ Atualizado (Sprint 4) |
+| `docs/PROJECT_STATE.md` | Este arquivo | ✅ Atualizado (Sprint 4) |
 | `.env.example` | Template de variáveis de ambiente | ✅ Criado |
 | `.gitignore` | Arquivos ignorados pelo Git | ✅ Criado |
-| `supabase/migrations/*.sql` | 7 migrations do banco | ✅ Criadas (Sprint 3) |
+| `supabase/migrations/*.sql` | 10 migrations do banco | ✅ Criadas (Sprint 3-4) |
 
 ---
 
@@ -237,6 +242,107 @@ Antes de iniciar, definir:
 - Modelo de embeddings (text-embedding-3-small)
 - Chunking strategy
 - Edge Function para proxy de IA
+
+---
+
+## Sprint 4 — Concluída ✅
+
+**Objetivo:** Processamento de PDF no client-side + preparação para RAG
+
+### Migrations Criadas
+
+| # | Arquivo | Conteúdo |
+|---|---|---|
+| `00008` | `enable_pgvector.sql` | Extensão pgvector |
+| `00009` | `create_document_chunks.sql` | Tabela document_chunks + RLS + constraints |
+| `00010` | `create_document_chunks_indexes.sql` | 2 índices para chunks |
+
+### Tabela document_chunks
+
+| Coluna | Tipo | Constraints |
+|---|---|---|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() |
+| `document_id` | UUID | NOT NULL, FK → documents(id) ON DELETE CASCADE |
+| `chunk_index` | INTEGER | NOT NULL, CHECK >= 0 |
+| `content` | TEXT | NOT NULL |
+| `metadata` | JSONB | DEFAULT '{}' |
+| `created_at` | TIMESTAMPTZ | DEFAULT now() |
+
+**Constraints:** UNIQUE(document_id, chunk_index), CHECK(chunk_index >= 0)
+
+**RLS:** 3 policies (SELECT, INSERT, DELETE via documents JOIN)
+
+**Índices:** 2 (document_id), (document_id, chunk_index)
+
+### Dependências Adicionadas
+
+| Pacote | Versão | Uso |
+|---|---|---|
+| `pdfjs-dist` | 6.2.108 | Extração de texto PDF client-side |
+| `uuid` | latest | Geração de IDs de documentos |
+
+### Arquivos Criados/Modificados
+
+| Arquivo | Ação |
+|---|---|
+| `src/config/constants.ts` | Modificado: removido EMBEDDING_DIMENSIONS, adicionados MAX_PROCESSING_SIZE, CHUNK_SIZE_CHARS, CHUNK_OVERLAP_CHARS |
+| `src/core/types/documents.ts` | Criado: interfaces Document, SourceFile, DocumentChunk, ChunkMetadata, types DocumentStatus, DocumentErrorCode |
+| `src/features/documents/utils/pdfValidation.ts` | Criado: validatePdfFile, sanitizeFileName, getDocumentTitle |
+| `src/features/documents/services/storageService.ts` | Criado: uploadDocument, deleteDocumentFile, getDocumentFileUrl, downloadDocumentFile |
+| `src/features/documents/services/documentService.ts` | Criado: createDocument, updateDocumentStatus, updateDocumentExtractedText, getDocument, getDocuments, deleteDocument |
+| `src/features/documents/services/sourceFileService.ts` | Criado: createSourceFile, getSourceFileByDocumentId |
+| `src/features/documents/services/chunkService.ts` | Criado: createChunks, deleteChunksByDocumentId, getChunksByDocumentId |
+| `src/features/documents/services/chunkingService.ts` | Criado: chunkText (paragraph-aware, ~2000 chars, ~200 overlap) |
+| `src/features/documents/services/processingService.ts` | Criado: extractPdfText, extractTextFromUrl |
+| `src/features/documents/hooks/useDocumentUpload.ts` | Criado: uploadPdf com pipeline completo |
+| `src/features/documents/hooks/useDocuments.ts` | Criado: loadDocuments, removeDocument |
+| `src/features/documents/components/DocumentUpload.tsx` | Criado: drag & drop + status feedback |
+| `src/features/documents/components/DocumentCard.tsx` | Criado: card de documento com status |
+| `src/features/documents/pages/DocumentsPage.tsx` | Criado: listagem com upload |
+| `src/features/documents/pages/DocumentDetailPage.tsx` | Criado: detalhes do documento |
+| `src/routes/index.tsx` | Modificado: adicionadas rotas /documents e /documents/:id |
+| `src/features/auth/pages/DashboardPage.tsx` | Modificado: cards de features com navegação |
+| `tests/setup.ts` | Modificado: adicionado mock de pdfjs-dist |
+| `tests/unit/documents/pdfValidation.test.ts` | Criado: 9 testes |
+
+### Decisões Tomadas nesta Sprint
+
+| Decisão | Motivo |
+|---|---|
+| Processamento client-side (pdfjs-dist) | MVP sem Edge Functions; simplifica deploy |
+| Sem coluna embedding (Sprint 4) | Dimensão definida na Sprint 6 após escolha de modelo |
+| Sem índice HNSW (Sprint 4) | Criado na Sprint 6 com pgvector completo |
+| Sem Edge Functions (Sprint 4) | Adiado para IA (Sprint 5+) |
+| Sem OCR (Sprint 4) | Documentado como evolução futura |
+| Máx processamento: 20 MB | Limitação de memória client-side; arquivos >20MB armazenados com status=error |
+| PDFs sem texto: status=error | error_code=NO_EXTRACTABLE_TEXT; suporte a OCR futuro |
+| Frontend validation é UX only | Segurança via RLS + Storage Policies |
+| pgvector habilitado agora | Preparação para Sprint 6; sem custo |
+
+### Validação do banco real (2026-08-21):
+
+| Verificação | Status |
+|---|---|
+| pgvector extension v0.8.2 | ✅ Habilitada |
+| document_chunks table | ✅ Criada (6 colunas) |
+| RLS ativo em document_chunks | ✅ Funcionando |
+| 3 RLS policies document_chunks | ✅ Aplicadas |
+| 2 índices document_chunks | ✅ Criados |
+| 4 constraints document_chunks | ✅ Aplicadas |
+| 10 migrations (00001-00010) | ✅ Todas aplicadas |
+
+### Validação de código
+
+| Verificação | Status |
+|---|---|
+| `npm run lint` | ✅ 0 errors, 0 warnings |
+| `npx tsc -b` | ✅ Sem erros |
+| `npm run test` | ✅ 22 testes passando (5 arquivos) |
+| `npm run build` | ✅ Build produzido (972.86 kB gzip 285.93 kB) |
+
+**NOTA:** Chunk do bundle >500 kB devido ao pdfjs-dist. Code-splitting será avaliado no futuro.
+
+### Próximo passo: Sprint 5 — Chat com IA + Voz
 
 ---
 

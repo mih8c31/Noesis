@@ -412,12 +412,12 @@ Auditoria de todas as ações de escrita no sistema.
 
 ## 5. Extensões Necessárias
 
-| Extensão | Finalidade |
-|---|---|
-| `uuid-ossp` / `pgcrypto` | Geração de UUIDs (`gen_random_uuid()`) |
-| `pgvector` | Vetores de embedding para busca semântica |
-| `pg_trgm` | Busca por similaridade de texto (trigram) |
-| `unaccent` | Normalização de acentos para FTS em PT-BR |
+| Extensão | Finalidade | Status |
+|---|---|---|
+| `uuid-ossp` / `pgcrypto` | Geração de UUIDs (`gen_random_uuid()`) | ✅ Habilitada (Sprint 1) |
+| `pgvector` | Vetores de embedding para busca semântica | ✅ Habilitada (Sprint 4) |
+| `pg_trgm` | Busca por similaridade de texto (trigram) | ⏳ Sprint 6+ |
+| `unaccent` | Normalização de acentos para FTS em PT-BR | ⏳ Sprint 6+ |
 
 ---
 
@@ -525,7 +525,7 @@ interface TranslationCache {
 | 5 | `libraries` | Supabase | ✅ Implementada (Sprint 3) |
 | 6 | `documents` | Supabase | ✅ Implementada (Sprint 3) |
 | 7 | `source_files` | Supabase | ✅ Implementada (Sprint 3) |
-| 8 | `document_chunks` | Supabase | ⏳ Sprint 4 |
+| 8 | `document_chunks` | Supabase | ✅ Criada (Sprint 4) |
 | 9 | `reading_sessions` | Supabase | ⏳ Sprint 5 |
 | 10 | `session_bookmarks` | Supabase | ⏳ Sprint 5 |
 | 11 | `conversations` | Supabase | ⏳ Sprint 6 |

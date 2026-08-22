@@ -1,6 +1,6 @@
 # Roadmap de Implementação — Noesis
 
-> **Última atualização:** 2026-08-20  
+> **Última atualização:** 2026-08-21  
 > **Regra:** Cada sprint é apresentada para revisão e aprovação antes de prosseguir.
 
 ---
@@ -9,17 +9,17 @@
 
 ```
 Sprint 1  ████████░░░░░░░░░░░░░░░░  Fundação (Documentação) ✅
-Sprint 2  ░░░░░░░░████████░░░░░░░░  Setup + Autenticação
-Sprint 3  ░░░░░░░░░░░░░░░░████████  Banco de Dados + Migrations
-Sprint 4  ░░░░░░░░░░░░░░░░░░░░████  Processamento + RAG
-Sprint 5  ░░░░░░░░░░░░░░░░░░░░░░██  Leitor
-Sprint 6  ░░░░░░░░░░░░░░░░░░░░░░░█  Chat IA + RAG
-Sprint 7  ░░░░░░░░░░░░░░░░░░░░░░░░  Voz (STT + TTS)
-Sprint 8  ░░░░░░░░░░░░░░░░░░░░░░░░  Leitor + Voz
-Sprint 9  ░░░░░░░░░░░░░░░░░░░░░░░░  Anotações + Fichamentos
+Sprint 2  ░░░░████████░░░░░░░░░░░░  Setup + Autenticação ✅
+Sprint 3  ░░░░░░░░████████░░░░░░░░  Banco de Dados + Migrations ✅
+Sprint 4  ░░░░░░░░░░░░████████░░░░  Processamento + RAG Prep ✅
+Sprint 5  ░░░░░░░░░░░░░░░░████████  Chat IA + Voz
+Sprint 6  ░░░░░░░░░░░░░░░░░░░░████  Embeddings + RAG
+Sprint 7  ░░░░░░░░░░░░░░░░░░░░░░██  Leitor
+Sprint 8  ░░░░░░░░░░░░░░░░░░░░░░░█  Anotações + Fichamentos
+Sprint 9  ░░░░░░░░░░░░░░░░░░░░░░░░  Citações + Referências
 Sprint 10 ░░░░░░░░░░░░░░░░░░░░░░░░  Tradução
-Sprint 11 ░░░░░░░░░░░░░░░░░░░░░░░░  Citações + Referências
-Sprint 12 ░░░░░░░░░░░░░░░░░░░░░░░░  Testes
+Sprint 11 ░░░░░░░░░░░░░░░░░░░░░░░░  Busca Semântica
+Sprint 12 ░░░░░░░░░░░░░░░░░░░░░░░░  Testes + QA
 Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░░  Deploy + Documentação
 ```
 
@@ -124,20 +124,35 @@ Sprint 13 ░░░░░░░░░░░░░░░░░░░░░░░�
 
 ---
 
-## Sprint 4 — Processamento + RAG
+## Sprint 4 — Processamento + RAG Prep ✅ CONCLUÍDA
 
-**Objetivo:** Documentos processados com embeddings para busca semântica.
+**Objetivo:** Processamento de PDF client-side + preparação para RAG.
 
-| Tarefa | Descrição |
+| Tarefa | Status |
 |---|---|
-| Edge Function: process-document | Extração de texto, chunking, embeddings |
-| pdf-parse | Integração para extração de texto do PDF |
-| Chunking | Divisão em trechos de ~500 tokens com overlap |
-| Embeddings | Geração via OpenAI `text-embedding-3-small` |
-| pgvector setup | Extensão pgvector + índice HNSW |
-| Migrations | `document_chunks`, extensões PostgreSQL |
+| pdfjs-dist para extração de texto | ✅ Concluída |
+| Chunking paragraph-aware (~2000 chars) | ✅ Concluída |
+| Storage service para upload/download | ✅ Concluída |
+| Document service (CRUD completo) | ✅ Concluída |
+| Source file + chunk services | ✅ Concluídos |
+| pgvector extension habilitada | ✅ Habilitada |
+| document_chunks + RLS + índices | ✅ Criados (3 migrations) |
+| Document upload UI (drag & drop) | ✅ Concluída |
+| Document list + detail pages | ✅ Concluídas |
+| Dashboard com navegação | ✅ Concluída |
+| Testes unitários (9 novos) | ✅ Concluídos |
+| Validação: lint + typecheck + build | ✅ Aprovada |
 
-**Entregável:** Documentos processados e busca semântica funcional.
+**Decisões desta sprint:**
+- Processamento client-side (não Edge Functions) para MVP
+- Sem coluna embedding — adiada para Sprint 6
+- Sem HNSW index — adiado para Sprint 6
+- Máx 20 MB client-side; arquivos maiores armazenados com status=error
+- PDFs sem texto retornam error_code=NO_EXTRACTABLE_TEXT
+
+**Entregável:** Upload de PDF com extração de texto, chunking e armazenamento completo.
+
+**Próximo:** Sprint 5 — Chat com IA + Voz.
 
 ---
 

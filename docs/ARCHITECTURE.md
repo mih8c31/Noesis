@@ -1450,7 +1450,7 @@ docs/
 ---
 
 ## Validação
+> **Status:** Atualizada nas Sprints 1, 2, 3 e 4  
 
-> **Status:** Atualizada nas Sprints 1, 2 e 3  
-> **Sprint 3:** Banco de dados e migrations implementados  
+> **Sprint 4:** Processamento PDF + RAG prep implementados  
 > **Cada sprint será apresentada para revisão antes de prosseguir**
