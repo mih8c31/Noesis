@@ -10,12 +10,6 @@ describe('PageNavigation', () => {
     onPageChange = vi.fn();
   });
 
-  const defaultProps = {
-    currentPage: 5,
-    totalPages: 10,
-    onPageChange: vi.fn(),
-  };
-
   it('should render current page and total pages', () => {
     render(<PageNavigation currentPage={5} totalPages={10} onPageChange={onPageChange} />);
     expect(screen.getByDisplayValue('5')).toBeInTheDocument();

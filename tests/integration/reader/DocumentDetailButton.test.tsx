@@ -138,7 +138,7 @@ describe('DocumentDetailPage - "Ler documento" button', () => {
       status: 200,
     });
 
-    const { container } = renderDetailPage();
+    renderDetailPage();
     await waitFor(() => {
       expect(screen.getByText('Ler documento')).toBeInTheDocument();
     });

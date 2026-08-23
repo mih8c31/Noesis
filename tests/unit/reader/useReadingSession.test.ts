@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useReadingSession } from '@/features/reader/hooks/useReadingSession';
 
 vi.mock('@/core/auth/hooks/useAuth', () => ({
