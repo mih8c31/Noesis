@@ -73,7 +73,7 @@ export function ReaderPage() {
         return;
       }
 
-      const urlResult = await getDocumentFileUrl(sourceResult.data.storage_path);
+      const urlResult = await getDocumentFileUrl(sourceResult.data.file_path);
       if (cancelled) return;
       if (urlResult.error || !urlResult.data) {
         setError('Não foi possível obter URL do arquivo');

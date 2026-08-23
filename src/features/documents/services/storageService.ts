@@ -48,11 +48,15 @@ export async function deleteDocumentFile(
 export async function getDocumentFileUrl(
   filePath: string
 ): Promise<APIResponse<string>> {
-  const { data } = supabase.storage
+  const { data, error } = await supabase.storage
     .from(STORAGE_BUCKET)
-    .getPublicUrl(filePath);
+    .createSignedUrl(filePath, 3600);
 
-  return { data: data.publicUrl, error: null, status: 200 };
+  if (error) {
+    return { data: null, error: error.message, status: 500 };
+  }
+
+  return { data: data.signedUrl, error: null, status: 200 };
 }
 
 export async function downloadDocumentFile(
