@@ -66,7 +66,7 @@ export function PdfViewer({ fileUrl, pageNumber, scale, onTotalPages, onPdfLoade
     return () => {
       cancelled = true;
     };
-  }, [pageNumber, scale]);
+  }, [pageNumber, scale, isLoading]);
 
   if (error) {
     return (

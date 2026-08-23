@@ -11,7 +11,7 @@ const ZOOM_OPTIONS = [50, 75, 100, 125, 150, 200];
 export function ZoomControl({ zoom, onZoomChange }: ZoomControlProps) {
   const handleZoomIn = () => {
     const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
-    if (currentIndex < ZOOM_OPTIONS.length - 1) {
+    if (currentIndex >= 0 && currentIndex < ZOOM_OPTIONS.length - 1) {
       onZoomChange(ZOOM_OPTIONS[currentIndex + 1]);
     }
   };

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { getDocument } from '@/features/documents/services/documentService';
@@ -35,17 +35,19 @@ export function ReaderPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tocItems, setTocItems] = useState<{ title: string; pageNumber: number }[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const { initSession: initReadingSession, updateProgress } = useReadingSession(id ?? null);
+  const { initSession: initReadingSession, updateProgress, saveProgress } = useReadingSession(id ?? null);
   const {
     bookmarks,
     loadBookmarks,
     addBookmark,
     removeBookmark,
-  } = useBookmarks(null);
+  } = useBookmarks(sessionId);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
+  /* eslint-disable react-hooks/exhaustive-deps -- initReadingSession & setCurrentPage are stable refs, omitting prevents infinite re-render */
   useEffect(() => {
     if (!id) return;
 
@@ -100,7 +102,8 @@ export function ReaderPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, initReadingSession, setCurrentPage]);
+  }, [id]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const handlePdfLoaded = useCallback(async (pdf: PDFDocumentProxy) => {
     setTotalPages(pdf.numPages);
@@ -136,13 +139,18 @@ export function ReaderPage() {
   }, [toggleSidebar]);
 
   useEffect(() => {
-    const loadBookmarksAsync = async () => {
-      if (sessionId) {
-        await loadBookmarks();
-      }
+    if (sessionId) {
+      loadBookmarks();
+    }
+  }, [sessionId, loadBookmarks]);
+
+  useEffect(() => {
+    return () => {
+      const currentPageVal = useReaderStore.getState().currentPage;
+      const totalPagesVal = useReaderStore.getState().totalPages;
+      saveProgress(currentPageVal, totalPagesVal);
     };
-    loadBookmarksAsync();
-  }, [sessionId, currentPage, loadBookmarks]);
+  }, [saveProgress]);
 
   if (isLoading) {
     return (
