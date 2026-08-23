@@ -29,7 +29,7 @@ export async function renderPageToCanvas(
   canvas.height = viewport.height;
   canvas.width = viewport.width;
 
-  await page.render({ canvasContext: context, viewport }).promise;
+  await page.render({ canvasContext: context, viewport, canvas } as Parameters<typeof page.render>[0]).promise;
 }
 
 export async function extractToc(

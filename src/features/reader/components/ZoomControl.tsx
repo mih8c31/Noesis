@@ -9,17 +9,17 @@ interface ZoomControlProps {
 const ZOOM_OPTIONS = [50, 75, 100, 125, 150, 200];
 
 export function ZoomControl({ zoom, onZoomChange }: ZoomControlProps) {
+  const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
+
   const handleZoomIn = () => {
-    const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
     if (currentIndex >= 0 && currentIndex < ZOOM_OPTIONS.length - 1) {
-      onZoomChange(ZOOM_OPTIONS[currentIndex + 1]);
+      onZoomChange(ZOOM_OPTIONS[currentIndex + 1]!);
     }
   };
 
   const handleZoomOut = () => {
-    const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
     if (currentIndex > 0) {
-      onZoomChange(ZOOM_OPTIONS[currentIndex - 1]);
+      onZoomChange(ZOOM_OPTIONS[currentIndex - 1]!);
     }
   };
 
@@ -29,7 +29,7 @@ export function ZoomControl({ zoom, onZoomChange }: ZoomControlProps) {
         variant="ghost"
         size="sm"
         onClick={handleZoomOut}
-        disabled={zoom <= ZOOM_OPTIONS[0]}
+        disabled={zoom <= ZOOM_OPTIONS[0]!}
         className="h-8 w-8 p-0"
       >
         <ZoomOut className="h-4 w-4" />
@@ -39,7 +39,7 @@ export function ZoomControl({ zoom, onZoomChange }: ZoomControlProps) {
         variant="ghost"
         size="sm"
         onClick={handleZoomIn}
-        disabled={zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]}
+        disabled={zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]!}
         className="h-8 w-8 p-0"
       >
         <ZoomIn className="h-4 w-4" />
