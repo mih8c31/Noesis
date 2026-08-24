@@ -1,7 +1,7 @@
 # Estado do Projeto — Noesis
 
-> **Última atualização:** 2026-08-22  
-> **Status geral:** Sprint 5 concluída (Leitor de PDF). Deploy validado em GitHub Pages.
+> **Última atualização:** 2026-08-23  
+> **Status geral:** Sprint 5.1 concluída (Causa raiz do upload corrigida). Deploy validado em GitHub Pages.
 
 ---
 
@@ -40,6 +40,8 @@
 | Progresso de leitura + sessões | ✅ Implementado (Sprint 5) |
 | Bookmarks por página | ✅ Implementado (Sprint 5) |
 | Tabela de conteúdo (TOC) | ✅ Implementado (Sprint 5) |
+| Upload de documentos (UUID fix) | ✅ Corrigido (Sprint 5.1) |
+| Tratamento de erros upload | ✅ Corrigido (Sprint 5.1) |
 | Funcionalidades de negócio (IA) | ⏳ Sprint 6+ |
 | Deploy | ⏳ Sprint 13 |
 
@@ -473,6 +475,69 @@ Antes de iniciar, definir:
 | `npm run test` | ✅ 25 testes passando (6 arquivos) |
 | `npm run build` | ✅ Build produzido (989.23 kB gzip 289.83 kB) |
 | Migrations aplicadas | ✅ 13/13 migrations (00012 + 00013) |
+
+### Próximo passo: Sprint 5.1 — Auditoria de Causa Raiz
+
+---
+
+## Sprint 5.1 — Auditoria de Causa Raiz ✅ CONCLUÍDA
+
+**Objetivo:** Investigar e corrigir problemas reais de produção: 403 no INSERT de source_files, PDF travado em "Extraindo texto...", documentos nunca alcancam status `ready`, botão "Ler documento" nunca aparece.
+
+### Causa Raiz Identificada: UUID Mismatch
+
+O código em `useDocumentUpload.ts` gerava um UUID via `uuidv4()` para a path de storage, mas o `createDocument()` não recebia esse ID — o PostgreSQL gerava um UUID diferente via `DEFAULT gen_random_uuid()`. Resultado:
+
+- **Storage** salvava em `/{userId}/{uuidv4-simples}/file.pdf`
+- **documents.id** era um UUID diferente gerado pelo banco
+- `createSourceFile({document_id: uuidv4})` tentava referenciar um ID que não existia em `documents`
+- RLS faz `EXISTS(SELECT 1 FROM documents WHERE documents.id = ...)` → FALSE → **403 Forbidden**
+- `updateDocumentStatus(uuidv4, 'ready')` tentava atualizar 0 rows → documento ficava `processing` para sempre
+
+### Correções Aplicadas
+
+| # | Arquivo | Problema | Correção |
+|---|---|---|---|
+| 1 | `useDocumentUpload.ts` | `uuidv4()` gerava ID que não correspondia ao `documents.id` | Reordenado: `createDocument()` primeiro, depois `uploadDocument()` usando `createResult.data.id` |
+| 2 | `useDocumentUpload.ts` | Erros em `createSourceFile`, `createChunks`, `updateDocumentStatus` eram silenciados | Adicionada verificação de erro em cada chamada, com rollback para `status: 'error'` |
+| 3 | `useDocumentUpload.ts` | Import `uuid` desnecessário | Removido |
+
+### Fluxo Corrigido
+
+```
+ANTES (BROKEN):
+  documentId = uuidv4()           →  '1059794f...'
+  uploadDocument(user.id, documentId)  →  storage OK com path '1059794f/...'
+  createDocument({...})           →  banco gera 'd882dbe5...' (DIFERENTE, uuidv4 ignorado)
+  createSourceFile(document_id: '1059794f')  →  403! RLS falha
+  updateDocumentStatus('1059794f', 'ready')  →  0 rows atualizados
+
+DEPOIS (CORRETO):
+  createDocument({...})           →  banco gera 'd882dbe5...'
+  realDocId = createResult.data.id  →  'd882dbe5...'
+  uploadDocument(user.id, realDocId)  →  storage OK com path 'd882dbe5/...'
+  createSourceFile(document_id: 'd882dbe5')  →  OK! RLS passa
+  updateDocumentStatus('d882dbe5', 'ready')  →  OK! 1 row atualizado
+```
+
+### Limpeza de Dados Corrompidos
+
+| Dados | Quantidade | Ação |
+|---|---|---|
+| Documents stuck em 'processing' | 2 | Deletados via Management API |
+| Storage objects órfãos | 3 | Não deletados (requer service_role key; dados são inertes) |
+
+### Validação
+
+| Verificação | Status |
+|---|---|
+| `npm run lint` | ✅ 0 errors, 0 warnings |
+| `npx tsc --noEmit` | ✅ Sem erros |
+| `vitest run` | ✅ 162 testes passando (21 arquivos) |
+| `npm run build` | ✅ 989.13 kB (gzip 289.61 kB) |
+| Banco: documents | ✅ 0 linhas (limpo) |
+| Banco: source_files | ✅ 0 linhas |
+| Banco: document_chunks | ✅ 0 linhas |
 
 ### Próximo passo: Sprint 6 — Chat IA + RAG
 

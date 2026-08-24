@@ -1,13 +1,9 @@
 import { useState, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/core/auth/hooks/useAuth';
 import { validatePdfFile, getDocumentTitle } from '../utils/pdfValidation';
 import { uploadDocument } from '../services/storageService';
 import { createDocument, updateDocumentStatus } from '../services/documentService';
 import { createSourceFile } from '../services/sourceFileService';
-import { extractPdfText } from '../services/processingService';
-import { chunkText } from '../services/chunkingService';
-import { createChunks } from '../services/chunkService';
 import type { Document } from '@/core/types/documents';
 
 interface UploadState {
@@ -57,25 +53,13 @@ export function useDocumentUpload() {
         return null;
       }
 
-      const documentId = uuidv4();
-
-      setUploadState(prev => ({ ...prev, progress: 20, status: 'uploading' }));
-
-      const uploadResult = await uploadDocument(user.id, documentId, file);
-      if (uploadResult.error) {
-        setUploadState(prev => ({
-          ...prev,
-          error: uploadResult.error ?? 'Erro ao enviar arquivo',
-          status: 'error',
-        }));
-        return null;
-      }
+      setUploadState(prev => ({ ...prev, progress: 10, status: 'validating' }));
 
       const createResult = await createDocument({
         user_id: user.id,
         library_id: libraryId,
         type: documentType,
-        status: validation.needsProcessing ? 'processing' : 'ready',
+        status: 'processing',
         title: getDocumentTitle(file.name),
         abstract: null,
         authors: [],
@@ -106,57 +90,55 @@ export function useDocumentUpload() {
         return null;
       }
 
-      await createSourceFile({
-        document_id: documentId,
+      const realDocId = createResult.data!.id;
+
+      setUploadState(prev => ({ ...prev, progress: 20, status: 'uploading', documentId: realDocId }));
+
+      const uploadResult = await uploadDocument(user.id, realDocId, file);
+      if (uploadResult.error) {
+        await updateDocumentStatus(realDocId, 'error', {
+          error_code: 'UPLOAD_FAILED',
+          error_message: uploadResult.error,
+        });
+        setUploadState(prev => ({
+          ...prev,
+          error: uploadResult.error ?? 'Erro ao enviar arquivo',
+          status: 'error',
+        }));
+        return null;
+      }
+
+      const sourceResult = await createSourceFile({
+        document_id: realDocId,
         storage_bucket: 'documents',
         file_path: uploadResult.data!,
         mime_type: 'application/pdf',
         file_size: file.size,
       });
 
-      setUploadState(prev => ({
-        ...prev,
-        progress: 50,
-        status: 'processing',
-        documentId,
-      }));
-
-      if (validation.needsProcessing) {
-        const extraction = await extractPdfText(file);
-
-        if (!extraction.hasText) {
-          await updateDocumentStatus(documentId, 'error', {
-            error_code: extraction.errorCode,
-            error_message: extraction.error,
-          });
-
-          setUploadState(prev => ({
-            ...prev,
-            error: extraction.error ?? 'Erro ao processar PDF',
-            status: 'error',
-          }));
-          return null;
-        }
-
-        setUploadState(prev => ({ ...prev, progress: 70, status: 'chunking' }));
-
-        const chunks = chunkText(documentId, [
-          { pageNumber: 1, text: extraction.text },
-        ]);
-
-        await createChunks(chunks);
-
-        await updateDocumentStatus(documentId, 'ready');
-
+      if (sourceResult.error) {
+        await updateDocumentStatus(realDocId, 'error', {
+          error_code: 'UPLOAD_FAILED',
+          error_message: sourceResult.error,
+        });
         setUploadState(prev => ({
           ...prev,
-          progress: 100,
-          status: 'done',
-          isUploading: false,
+          error: sourceResult.error ?? 'Erro ao registrar arquivo',
+          status: 'error',
         }));
+        return null;
+      }
 
-        const docResult = await createResult;
-        return docResult.data;
+      // TODO (Sprint 6+): reativar extração de texto quando IA/RAG estiver pronto
+      // Extração de texto desabilitada temporariamente (muito lenta em PDFs grandes)
+      const statusResult = await updateDocumentStatus(realDocId, 'ready');
+      if (statusResult.error) {
+        setUploadState(prev => ({
+          ...prev,
+          error: statusResult.error ?? 'Erro ao finalizar processamento',
+          status: 'error',
+        }));
+        return null;
       }
 
       setUploadState(prev => ({

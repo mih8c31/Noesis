@@ -4,12 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export async function loadPdfDocument(url: string): Promise<PDFDocumentProxy> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Falha ao carregar PDF: ${response.status}`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  return pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  return pdfjsLib.getDocument({ url, withCredentials: false }).promise;
 }
 
 export async function renderPageToCanvas(
@@ -20,16 +15,11 @@ export async function renderPageToCanvas(
 ): Promise<void> {
   const page = await pdf.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
-  const context = canvas.getContext('2d');
-
-  if (!context) {
-    throw new Error('Não foi possível obter contexto do canvas');
-  }
 
   canvas.height = viewport.height;
   canvas.width = viewport.width;
 
-  await page.render({ canvasContext: context, viewport, canvas } as Parameters<typeof page.render>[0]).promise;
+  await page.render({ canvas, viewport }).promise;
 }
 
 export async function extractToc(
