@@ -139,9 +139,14 @@ class SupabaseClient {
       headers: this._headers(),
       body: JSON.stringify({ expiresIn }),
     });
-    const data = await res.json();
-    if (res.ok) return { data: `${this.storageUrl}${data.signedUrl}`, error: null };
-    return { data: null, error: data.message || 'Erro ao obter URL' };
+    const raw = await res.json();
+    console.log('[Supabase] sign response:', JSON.stringify(raw));
+    if (res.ok) {
+      const signedUrl = raw.signedUrl || raw.url || raw.signedURL;
+      if (signedUrl) return { data: `${this.storageUrl}${signedUrl}`, error: null };
+      return { data: null, error: `Unexpected response: ${JSON.stringify(raw)}` };
+    }
+    return { data: null, error: raw.message || 'Erro ao obter URL' };
   }
 
   async storageDelete(bucket, path) {
