@@ -208,7 +208,8 @@ const Reader = {
       await this.renderAllPages();
     } catch (err) {
       console.error('[Reader] render error:', err);
-      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Erro ao renderizar: ${err.message}</p>`;
+      const loading = Utils.$('#pdf-container');
+      if (loading) loading.innerHTML = `<div class="pdf-loading"><p class="text-error">Erro ao renderizar: ${err.message}</p></div>`;
     }
   },
 
@@ -216,6 +217,8 @@ const Reader = {
     if (!this.pdf) return;
 
     const container = Utils.$('#pdf-container');
+    const loading = Utils.$('#pdf-loading');
+    if (loading) loading.remove();
     container.innerHTML = '';
     container.style.flexDirection = 'column';
     container.style.alignItems = 'center';
@@ -254,7 +257,8 @@ const Reader = {
       }
     }
 
-    Utils.$('#pdf-loading').style.display = 'none';
+    const loading = Utils.$('#pdf-loading');
+    if (loading) loading.style.display = 'none';
     container.addEventListener('scroll', () => this._onScroll());
 
     this._initAreaSelection();
