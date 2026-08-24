@@ -257,8 +257,6 @@ const Reader = {
       }
     }
 
-    const loading = Utils.$('#pdf-loading');
-    if (loading) loading.style.display = 'none';
     container.addEventListener('scroll', () => this._onScroll());
 
     this._initAreaSelection();
