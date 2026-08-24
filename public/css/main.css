@@ -521,17 +521,34 @@ input, button, textarea {
 
 .pdf-container {
   flex: 1;
-  overflow: auto;
-  display: flex;
-  justify-content: center;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   background: var(--bg-primary);
+  scroll-behavior: smooth;
 }
 
-.pdf-container canvas {
+.pdf-page-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.pdf-page-canvas {
   box-shadow: var(--shadow);
   max-width: 100%;
-  height: auto;
+}
+
+.pdf-page-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.pdf-page-gap {
+  flex-shrink: 0;
 }
 
 .pdf-loading {
@@ -542,17 +559,6 @@ input, button, textarea {
   height: 100%;
   gap: 12px;
   color: var(--text-muted);
-}
-
-.pdf-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 8px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-secondary);
-  flex-shrink: 0;
 }
 
 .pdf-page-indicator {

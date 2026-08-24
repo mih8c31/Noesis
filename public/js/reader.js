@@ -6,6 +6,8 @@ const Reader = {
   documentId: null,
   document: null,
   chatMessages: [],
+  _keyHandler: null,
+  _wheelHandler: null,
 
   async render(docId) {
     this.documentId = docId;
@@ -37,16 +39,6 @@ const Reader = {
                 <div class="spinner"></div>
                 <p>Carregando PDF...</p>
               </div>
-              <canvas id="pdf-canvas"></canvas>
-            </div>
-            <div class="pdf-nav">
-              <button id="prev-page" class="btn btn-ghost btn-sm" disabled>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3l-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <span id="page-indicator" class="pdf-page-indicator">- / -</span>
-              <button id="next-page" class="btn btn-ghost btn-sm" disabled>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
             </div>
           </div>
 
@@ -83,22 +75,13 @@ const Reader = {
   },
 
   bindEvents() {
-    Utils.$('#reader-back').addEventListener('click', () => router.navigate('/dashboard'));
-
-    Utils.$('#prev-page').addEventListener('click', () => this.goToPage(this.currentPage - 1));
-    Utils.$('#next-page').addEventListener('click', () => this.goToPage(this.currentPage + 1));
-
-    Utils.$('#zoom-in').addEventListener('click', () => {
-      this.scale = Math.min(this.scale + 0.2, 3);
-      Utils.$('#zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
-      this.renderPage();
+    Utils.$('#reader-back').addEventListener('click', () => {
+      this.destroy();
+      router.navigate('/dashboard');
     });
 
-    Utils.$('#zoom-out').addEventListener('click', () => {
-      this.scale = Math.max(this.scale - 0.2, 0.5);
-      Utils.$('#zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
-      this.renderPage();
-    });
+    Utils.$('#zoom-in').addEventListener('click', () => this.zoom(0.2));
+    Utils.$('#zoom-out').addEventListener('click', () => this.zoom(-0.2));
 
     Utils.$('#chat-send').addEventListener('click', () => this.sendChat());
     Utils.$('#chat-input').addEventListener('keydown', (e) => {
@@ -108,12 +91,44 @@ const Reader = {
       }
     });
 
-    // Keyboard navigation
     document.addEventListener('keydown', this._keyHandler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (e.key === 'ArrowLeft') this.goToPage(this.currentPage - 1);
-      if (e.key === 'ArrowRight') this.goToPage(this.currentPage + 1);
+      const container = Utils.$('#pdf-container');
+      if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+        e.preventDefault();
+        this.scrollDown();
+      }
+      if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        this.scrollUp();
+      }
     });
+  },
+
+  scrollDown() {
+    const container = Utils.$('#pdf-container');
+    if (!container) return;
+    const pageH = this._getPageHeight();
+    container.scrollBy({ top: pageH, behavior: 'smooth' });
+  },
+
+  scrollUp() {
+    const container = Utils.$('#pdf-container');
+    if (!container) return;
+    const pageH = this._getPageHeight();
+    container.scrollBy({ top: -pageH, behavior: 'smooth' });
+  },
+
+  _getPageHeight() {
+    if (!this.pdf) return 400;
+    const canvas = Utils.$('.pdf-page-canvas');
+    return canvas ? canvas.offsetHeight + 12 : 400;
+  },
+
+  zoom(delta) {
+    this.scale = Math.max(0.5, Math.min(3, this.scale + delta));
+    Utils.$('#zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
+    this.renderAllPages();
   },
 
   _status(msg) {
@@ -154,7 +169,6 @@ const Reader = {
       Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Erro ao obter URL: ${urlErr}</p>`;
       return;
     }
-    console.log('[Reader] signedUrl:', signedUrl);
 
     this._status('Carregando pdf.js...');
     try {
@@ -180,46 +194,109 @@ const Reader = {
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuf });
       this.pdf = await loadingTask.promise;
       this.totalPages = this.pdf.numPages;
+      this.currentPage = 1;
       this.updatePageInfo();
-      await this.renderPage();
-      Utils.$('#pdf-loading').style.display = 'none';
+      await this.renderAllPages();
     } catch (err) {
       console.error('[Reader] render error:', err);
       Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Erro ao renderizar: ${err.message}</p>`;
     }
   },
 
-  async renderPage() {
+  async renderAllPages() {
     if (!this.pdf) return;
 
-    try {
-      const page = await this.pdf.getPage(this.currentPage);
-      const viewport = page.getViewport({ scale: this.scale });
-      const canvas = Utils.$('#pdf-canvas');
-      const ctx = canvas.getContext('2d');
+    const container = Utils.$('#pdf-container');
+    const loading = Utils.$('#pdf-loading');
 
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+    container.innerHTML = '';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
-    } catch (err) {
-      console.error('Render error:', err);
+    const gap = 12;
+    for (let i = 1; i <= this.totalPages; i++) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'pdf-page-wrapper';
+      wrapper.dataset.page = i;
+
+      const pageLabel = document.createElement('div');
+      pageLabel.className = 'pdf-page-label';
+      pageLabel.textContent = i;
+      wrapper.appendChild(pageLabel);
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'pdf-page-canvas';
+      wrapper.appendChild(canvas);
+
+      container.appendChild(wrapper);
+
+      if (i < this.totalPages) {
+        const sep = document.createElement('div');
+        sep.className = 'pdf-page-gap';
+        sep.style.height = `${gap}px`;
+        container.appendChild(sep);
+      }
+
+      try {
+        await this._renderPageOnCanvas(i, canvas);
+      } catch (err) {
+        console.error(`[Reader] page ${i} error:`, err);
+      }
     }
+
+    if (loading) loading.style.display = 'none';
+
+    container.addEventListener('scroll', () => this._onScroll());
   },
 
-  goToPage(num) {
-    if (num < 1 || num > this.totalPages) return;
-    this.currentPage = num;
-    this.updatePageInfo();
-    this.renderPage();
+  async _renderPageOnCanvas(pageNum, canvas) {
+    const page = await this.pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: this.scale });
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = viewport.width * dpr;
+    canvas.height = viewport.height * dpr;
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+  },
+
+  _onScroll() {
+    const container = Utils.$('#pdf-container');
+    if (!container) return;
+
+    const canvases = Utils.$$('.pdf-page-canvas');
+    if (!canvases.length) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const center = containerRect.top + containerRect.height / 2;
+
+    let closest = 1;
+    let minDist = Infinity;
+
+    canvases.forEach((canvas, i) => {
+      const rect = canvas.getBoundingClientRect();
+      const canvasCenter = rect.top + rect.height / 2;
+      const dist = Math.abs(canvasCenter - center);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = i + 1;
+      }
+    });
+
+    if (closest !== this.currentPage) {
+      this.currentPage = closest;
+      this.updatePageInfo();
+    }
   },
 
   updatePageInfo() {
     const info = `${this.currentPage} / ${this.totalPages}`;
-    Utils.$('#page-indicator').textContent = info;
     Utils.$('#page-info').textContent = info;
-    Utils.$('#prev-page').disabled = this.currentPage <= 1;
-    Utils.$('#next-page').disabled = this.currentPage >= this.totalPages;
   },
 
   sendChat() {
@@ -232,7 +309,6 @@ const Reader = {
 
     this.renderInteraction();
 
-    // Placeholder AI response
     setTimeout(() => {
       this.chatMessages.push({
         role: 'assistant',
@@ -257,7 +333,7 @@ const Reader = {
   },
 
   destroy() {
-    document.removeEventListener('keydown', this._keyHandler);
+    if (this._keyHandler) document.removeEventListener('keydown', this._keyHandler);
     this.pdf = null;
   },
 
