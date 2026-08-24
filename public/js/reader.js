@@ -116,14 +116,23 @@ const Reader = {
     });
   },
 
+  _status(msg) {
+    console.log('[Reader]', msg);
+    const el = Utils.$('#pdf-loading');
+    if (el) {
+      const p = el.querySelector('p');
+      if (p) p.textContent = msg;
+    }
+  },
+
   async loadDocument() {
+    this._status('Buscando documento...');
     const { data: doc, error } = await supabase.from('documents')
       .select('*')
-      .eq('id', this.documentId)
-      .then(r => r);
+      .eq('id', this.documentId);
 
     if (error || !doc?.length) {
-      Utils.$('#pdf-loading').innerHTML = '<p class="text-error">Documento nao encontrado.</p>';
+      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Documento nao encontrado: ${error || ''}</p>`;
       return;
     }
 
@@ -135,6 +144,7 @@ const Reader = {
       return;
     }
 
+    this._status('Obtendo URL assinada...');
     const { data: signedUrl, error: urlErr } = await supabase.storageGetSignedUrl(
       this.document.storage_bucket,
       this.document.file_path
@@ -144,23 +154,38 @@ const Reader = {
       Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Erro ao obter URL: ${urlErr}</p>`;
       return;
     }
+    console.log('[Reader] signedUrl:', signedUrl);
 
+    this._status('Carregando pdf.js...');
     try {
       await this.waitForPdfjs();
+    } catch (e) {
+      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">pdf.js nao carregou: ${e.message}</p>`;
+      return;
+    }
 
+    this._status('Baixando PDF...');
+    let arrayBuf;
+    try {
       const res = await fetch(signedUrl);
-      if (!res.ok) throw new Error(`Falha ao baixar PDF (${res.status})`);
-      const data = await res.arrayBuffer();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      arrayBuf = await res.arrayBuffer();
+    } catch (e) {
+      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Falha ao baixar PDF: ${e.message}</p>`;
+      return;
+    }
 
-      const loadingTask = pdfjsLib.getDocument({ data });
+    this._status('Renderizando PDF...');
+    try {
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuf });
       this.pdf = await loadingTask.promise;
       this.totalPages = this.pdf.numPages;
       this.updatePageInfo();
       await this.renderPage();
       Utils.$('#pdf-loading').style.display = 'none';
     } catch (err) {
-      console.error('PDF load error:', err);
-      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Erro ao carregar PDF: ${err.message}</p>`;
+      console.error('[Reader] render error:', err);
+      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Erro ao renderizar: ${err.message}</p>`;
     }
   },
 
