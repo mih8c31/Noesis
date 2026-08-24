@@ -146,6 +146,7 @@ const Reader = {
     }
 
     try {
+      await this.waitForPdfjs();
       const loadingTask = pdfjsLib.getDocument({ url: signedUrl, withCredentials: false });
       this.pdf = await loadingTask.promise;
       this.totalPages = this.pdf.numPages;
@@ -227,5 +228,19 @@ const Reader = {
   destroy() {
     document.removeEventListener('keydown', this._keyHandler);
     this.pdf = null;
+  },
+
+  waitForPdfjs(timeout = 10000) {
+    if (window.pdfjsLib) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const check = () => {
+        if (window.pdfjsLib) return resolve();
+        if (Date.now() - start > timeout) return reject(new Error('pdf.js timeout'));
+        requestAnimationFrame(check);
+      };
+      window.addEventListener('pdfjs-ready', () => resolve(), { once: true });
+      check();
+    });
   },
 };

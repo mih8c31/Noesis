@@ -1,19 +1,20 @@
-const CACHE_NAME = 'noesis-v1';
+const CACHE_NAME = 'noesis-v2';
+const BASE = self.location.pathname.replace(/\/sw\.js$/, '/');
 const PRECACHE = [
-  '/',
-  '/index.html',
-  '/css/main.css',
-  '/js/config.js',
-  '/js/supabase.js',
-  '/js/utils.js',
-  '/js/router.js',
-  '/js/auth.js',
-  '/js/upload.js',
-  '/js/documents.js',
-  '/js/reader.js',
-  '/js/app.js',
-  '/manifest.json',
-  '/icons/icon.svg',
+  BASE,
+  BASE + 'index.html',
+  BASE + 'css/main.css',
+  BASE + 'js/config.js',
+  BASE + 'js/supabase.js',
+  BASE + 'js/utils.js',
+  BASE + 'js/router.js',
+  BASE + 'js/auth.js',
+  BASE + 'js/upload.js',
+  BASE + 'js/documents.js',
+  BASE + 'js/reader.js',
+  BASE + 'js/app.js',
+  BASE + 'manifest.json',
+  BASE + 'icons/icon.svg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -47,7 +48,7 @@ self.addEventListener('fetch', (event) => {
         return response;
       });
     }).catch(() => {
-      if (request.mode === 'navigate') return caches.match('/index.html');
+      if (request.mode === 'navigate') return caches.match(BASE + 'index.html');
     })
   );
 });
