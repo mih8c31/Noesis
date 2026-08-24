@@ -6,21 +6,27 @@ const Reader = {
   documentId: null,
   document: null,
   chatMessages: [],
-  selections: [],
-  activeSelection: -1,
+  extracts: [],
+  activeExtract: -1,
   _keyHandler: null,
+  _selecting: false,
+  _selStart: null,
+  _selRect: null,
 
   async render(docId) {
     this.documentId = docId;
     this.currentPage = 1;
     this.totalPages = 0;
     this.chatMessages = [];
-    this.selections = [];
-    this.activeSelection = -1;
+    this.extracts = [];
+    this.activeExtract = -1;
+    this._selecting = false;
+    this._selStart = null;
+    this._selRect = null;
 
     const app = Utils.$('#app');
     app.innerHTML = `
-      <div class="reader">
+      <div class="reader-layout">
         <header class="reader-header">
           <button id="reader-back" class="btn btn-ghost btn-sm" title="Voltar">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -36,7 +42,9 @@ const Reader = {
         </header>
 
         <div class="reader-body">
-          <div class="reader-pdf-panel">
+          <!-- PDF Viewer -->
+          <div class="reader-panel reader-pdf-panel">
+            <div class="panel-label">PDF</div>
             <div id="pdf-container" class="pdf-container">
               <div id="pdf-loading" class="pdf-loading">
                 <div class="spinner"></div>
@@ -45,45 +53,50 @@ const Reader = {
             </div>
           </div>
 
-          <div class="reader-interaction-panel">
-            <div class="interaction-header">
-              <h3>Interacao</h3>
-              <div id="selection-nav" class="selection-nav" style="display:none">
-                <button id="sel-prev" class="btn btn-ghost btn-sm" title="Anterior">&laquo;</button>
-                <span id="sel-counter" class="sel-counter">0/0</span>
-                <button id="sel-next" class="btn btn-ghost btn-sm" title="Proximo">&raquo;</button>
-                <button id="sel-clear" class="btn btn-ghost btn-sm sel-clear-btn" title="Limpar todos">Limpar</button>
+          <!-- Extracted Text -->
+          <div class="reader-panel reader-extract-panel">
+            <div class="panel-label">
+              Texto Extraido
+              <span id="extract-count" class="extract-count"></span>
+            </div>
+            <div id="extract-content" class="extract-content">
+              <div class="extract-placeholder">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <rect x="4" y="4" width="32" height="32" rx="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 2"/>
+                  <path d="M12 14h16M12 20h16M12 26h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <p>Arraste sobre o PDF para selecionar uma area</p>
+                <p class="text-muted">O texto da area sera extraido automaticamente</p>
               </div>
             </div>
-            <div id="interaction-content" class="interaction-content">
-              <div class="interaction-placeholder" id="interaction-placeholder">
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                  <rect x="6" y="6" width="36" height="36" rx="8" stroke="currentColor" stroke-width="2"/>
-                  <path d="M16 18h16M16 24h12M16 30h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </div>
+
+          <!-- Chat -->
+          <div class="reader-panel reader-chat-panel">
+            <div class="panel-label">Chat</div>
+            <div id="chat-messages" class="chat-messages">
+              <div class="chat-empty">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                  <path d="M6 8a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2H12l-4 4v-4H8a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
-                <p>Selecione texto no PDF para extrair trechos.</p>
-                <p class="text-muted">Selecione um paragrafo e clique em "Extrair" para salvar aqui.</p>
+                <p>Pergunte sobre o documento</p>
               </div>
-              <div id="selections-list" class="selections-list"></div>
             </div>
           </div>
         </div>
 
-        <div class="reader-chat-bar">
-          <div class="chat-input-container">
-            <input type="text" id="chat-input" class="chat-input" placeholder="Pergunte sobre o documento..." autocomplete="off">
+        <!-- Floating Chat Input -->
+        <div class="reader-chat-float">
+          <div class="chat-float-inner">
+            <textarea id="chat-input" class="chat-input" placeholder="Pergunte sobre o documento..." rows="1"></textarea>
             <button id="chat-send" class="btn btn-primary btn-sm chat-send-btn" title="Enviar">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9l12-6-6 12-2-6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
         </div>
-      </div>
 
-      <div id="extract-popup" class="extract-popup" style="display:none">
-        <button id="extract-btn" class="btn btn-primary btn-sm">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2h10M2 7h7M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Extrair trecho
-        </button>
+        <!-- Selection overlay (created dynamically) -->
+        <div id="selection-overlay" class="selection-overlay" style="display:none"></div>
       </div>
     `;
 
@@ -100,35 +113,29 @@ const Reader = {
     Utils.$('#zoom-in').addEventListener('click', () => this.zoom(0.2));
     Utils.$('#zoom-out').addEventListener('click', () => this.zoom(-0.2));
 
-    Utils.$('#sel-prev').addEventListener('click', () => this.navigateSelection(-1));
-    Utils.$('#sel-next').addEventListener('click', () => this.navigateSelection(1));
-    Utils.$('#sel-clear').addEventListener('click', () => this.clearSelections());
-
     Utils.$('#chat-send').addEventListener('click', () => this.sendChat());
-    Utils.$('#chat-input').addEventListener('keydown', (e) => {
+    const chatInput = Utils.$('#chat-input');
+    chatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.sendChat();
       }
     });
-
-    Utils.$('#extract-btn').addEventListener('click', () => this.extractSelection());
-
-    document.addEventListener('mousedown', (e) => {
-      if (!e.target.closest('.extract-popup') && !e.target.closest('.text-layer')) {
-        Utils.$('#extract-popup').style.display = 'none';
-      }
+    chatInput.addEventListener('input', () => {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
     });
 
     document.addEventListener('keydown', this._keyHandler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const container = Utils.$('#pdf-container');
       if (e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault();
-        this.scrollDown();
+        container.scrollBy({ top: container.clientHeight * 0.8, behavior: 'smooth' });
       }
       if (e.key === 'ArrowUp' || e.key === 'PageUp') {
         e.preventDefault();
-        this.scrollUp();
+        container.scrollBy({ top: -container.clientHeight * 0.8, behavior: 'smooth' });
       }
     });
   },
@@ -149,7 +156,7 @@ const Reader = {
       .eq('id', this.documentId);
 
     if (error || !doc?.length) {
-      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Documento nao encontrado: ${error || ''}</p>`;
+      Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Documento nao encontrado</p>`;
       return;
     }
 
@@ -248,6 +255,8 @@ const Reader = {
 
     Utils.$('#pdf-loading').style.display = 'none';
     container.addEventListener('scroll', () => this._onScroll());
+
+    this._initAreaSelection();
   },
 
   async _renderPageWithTextLayer(pageNum, pageContainer, canvas) {
@@ -273,9 +282,7 @@ const Reader = {
 
     textContent.items.forEach((item) => {
       if (!item.str || !item.str.trim()) return;
-
       const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-
       const span = document.createElement('span');
       span.textContent = item.str;
       span.className = 'text-layer-span';
@@ -284,7 +291,7 @@ const Reader = {
       span.style.left = `${tx[4]}px`;
       span.style.top = `${tx[5] - fontSize}px`;
       span.style.fontSize = `${fontSize}px`;
-      span.style.fontFamily = item.fontName ? item.fontName : 'sans-serif';
+      if (item.fontName) span.style.fontFamily = item.fontName;
 
       if (item.width > 0) {
         const actualWidth = item.width * viewport.scale;
@@ -293,160 +300,242 @@ const Reader = {
           : '0';
       }
 
+      span.dataset.text = item.str;
       textLayer.appendChild(span);
     });
 
-    textLayer.addEventListener('mouseup', (e) => this._onTextSelection(e, pageNum));
     pageContainer.appendChild(textLayer);
   },
 
-  _onTextSelection(e, pageNum) {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+  /* ==========================================
+     AREA SELECTION
+     ========================================== */
+  _initAreaSelection() {
+    const container = Utils.$('#pdf-container');
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const pageContainer = e.target.closest('.pdf-page-container');
+      if (!pageContainer) return;
+
+      const rect = pageContainer.getBoundingClientRect();
+      this._selecting = true;
+      this._selStart = {
+        x: e.clientX - rect.left + container.scrollLeft,
+        y: e.clientY - rect.top + container.scrollTop,
+        pageContainer,
+        containerRect: rect,
+      };
+
+      const overlay = Utils.$('#selection-overlay');
+      overlay.style.display = 'none';
+      overlay.innerHTML = '';
+      e.preventDefault();
+    });
+
+    container.addEventListener('mousemove', (e) => {
+      if (!this._selecting) return;
+
+      const { pageContainer, containerRect } = this._selStart;
+      const currentX = e.clientX - containerRect.left + container.scrollLeft;
+      const currentY = e.clientY - containerRect.top + container.scrollTop;
+
+      const x = Math.min(this._selStart.x, currentX);
+      const y = Math.min(this._selStart.y, currentY);
+      const w = Math.abs(currentX - this._selStart.x);
+      const h = Math.abs(currentY - this._selStart.y);
+
+      if (w < 5 && h < 5) return;
+
+      const overlay = Utils.$('#selection-overlay');
+      overlay.style.display = 'block';
+      overlay.style.left = `${containerRect.left}px`;
+      overlay.style.top = `${containerRect.top}px`;
+      overlay.style.width = `${containerRect.width}px`;
+      overlay.style.height = `${containerRect.height}px`;
+
+      overlay.innerHTML = `
+        <div class="sel-rect" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>
+      `;
+    });
+
+    const endSelection = (e) => {
+      if (!this._selecting) return;
+      this._selecting = false;
+
+      const overlay = Utils.$('#selection-overlay');
+      const selRect = overlay.querySelector('.sel-rect');
+      if (!selRect) { overlay.style.display = 'none'; return; }
+
+      const x = parseFloat(selRect.style.left);
+      const y = parseFloat(selRect.style.top);
+      const w = parseFloat(selRect.style.width);
+      const h = parseFloat(selRect.style.height);
+
+      if (w < 10 || h < 10) {
+        overlay.style.display = 'none';
+        overlay.innerHTML = '';
+        return;
+      }
+
+      const pageContainer = this._selStart.pageContainer;
+      const pageNum = parseInt(pageContainer.closest('.pdf-page-wrapper').dataset.page);
+      this._extractTextFromArea(pageContainer, x, y, w, h, pageNum);
+
+      overlay.style.display = 'none';
+      overlay.innerHTML = '';
+    };
+
+    container.addEventListener('mouseup', endSelection);
+    document.addEventListener('mouseup', () => {
+      if (this._selecting) endSelection();
+    });
+  },
+
+  _extractTextFromArea(pageContainer, selX, selY, selW, selH, pageNum) {
+    const textLayer = pageContainer.querySelector('.text-layer');
+    if (!textLayer) return;
+
+    const spans = textLayer.querySelectorAll('.text-layer-span');
+    const selectedSpans = [];
+
+    spans.forEach((span) => {
+      const spanRect = {
+        left: parseFloat(span.style.left),
+        top: parseFloat(span.style.top),
+        right: parseFloat(span.style.left) + span.offsetWidth,
+        bottom: parseFloat(span.style.top) + span.offsetHeight,
+      };
+
+      const overlaps =
+        spanRect.left < selX + selW &&
+        spanRect.right > selX &&
+        spanRect.top < selY + selH &&
+        spanRect.bottom > selY;
+
+      if (overlaps && span.dataset.text) {
+        selectedSpans.push({
+          text: span.dataset.text,
+          top: spanRect.top,
+          left: spanRect.left,
+        });
+      }
+    });
+
+    if (!selectedSpans.length) return;
+
+    selectedSpans.sort((a, b) => a.top - b.top || a.left - b.left);
+
+    let result = '';
+    let lastTop = -Infinity;
+    selectedSpans.forEach((s) => {
+      if (Math.abs(s.top - lastTop) > 5) {
+        if (result) result += '\n';
+      } else {
+        result += ' ';
+      }
+      result += s.text;
+      lastTop = s.top;
+    });
+
+    if (!result.trim()) return;
+
+    this.extracts.push({
+      id: Date.now(),
+      text: result.trim(),
+      page: pageNum,
+      timestamp: new Date().toISOString(),
+    });
+
+    this.activeExtract = this.extracts.length - 1;
+    this.renderExtracts();
+  },
+
+  renderExtracts() {
+    const container = Utils.$('#extract-content');
+    const count = Utils.$('#extract-count');
+
+    if (!this.extracts.length) {
+      container.innerHTML = `
+        <div class="extract-placeholder">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="4" y="4" width="32" height="32" rx="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <path d="M12 14h16M12 20h16M12 26h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <p>Arraste sobre o PDF para selecionar uma area</p>
+          <p class="text-muted">O texto da area sera extraido automaticamente</p>
+        </div>
+      `;
+      count.textContent = '';
       return;
     }
 
-    const text = sel.toString().trim();
-    if (!text) return;
+    count.textContent = `(${this.extracts.length})`;
 
-    const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-
-    sel.removeAllRanges();
-
-    const popup = Utils.$('#extract-popup');
-    popup.style.display = 'flex';
-    popup.style.left = `${rect.left + rect.width / 2}px`;
-    popup.style.top = `${rect.top - 8 + window.scrollY}px`;
-    popup.dataset.text = text;
-    popup.dataset.page = pageNum;
-  },
-
-  extractSelection() {
-    const popup = Utils.$('#extract-popup');
-    const text = popup.dataset.text;
-    const page = parseInt(popup.dataset.page);
-
-    if (!text) return;
-
-    const existing = this.selections.find(s => s.text === text && s.page === page);
-    if (!existing) {
-      this.selections.push({
-        id: Date.now(),
-        text,
-        page,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    popup.style.display = 'none';
-    window.getSelection().removeAllRanges();
-    this.activeSelection = this.selections.length - 1;
-    this.renderSelections();
-  },
-
-  renderSelections() {
-    const list = Utils.$('#selections-list');
-    const placeholder = Utils.$('#interaction-placeholder');
-    const nav = Utils.$('#selection-nav');
-
-    if (!this.selections.length) {
-      if (placeholder) placeholder.style.display = '';
-      if (nav) nav.style.display = 'none';
-      list.innerHTML = '';
-      return;
-    }
-
-    if (placeholder) placeholder.style.display = 'none';
-    if (nav) nav.style.display = 'flex';
-
-    Utils.$('#sel-counter').textContent = `${this.activeSelection + 1}/${this.selections.length}`;
-
-    list.innerHTML = this.selections.map((sel, i) => `
-      <div class="selection-card ${i === this.activeSelection ? 'selection-active' : ''}" data-index="${i}">
-        <div class="selection-card-header">
-          <span class="selection-page">Pag. ${sel.page}</span>
-          <div class="selection-card-actions">
-            <button class="btn btn-ghost btn-sm selection-goto" data-page="${sel.page}" title="Ir para pagina">
+    container.innerHTML = this.extracts.map((ext, i) => `
+      <div class="extract-card ${i === this.activeExtract ? 'extract-active' : ''}" data-index="${i}">
+        <div class="extract-card-header">
+          <span class="extract-page">Pag. ${ext.page}</span>
+          <div class="extract-card-actions">
+            <button class="btn btn-ghost btn-sm extract-goto" data-page="${ext.page}" title="Ir para pagina">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 3l3 4-3 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button class="btn btn-ghost btn-sm selection-remove" data-index="${i}" title="Remover">
+            <button class="btn btn-ghost btn-sm extract-copy" data-index="${i}" title="Copiar">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10 4V3a1 1 0 00-1-1H3a1 1 0 00-1 1v6a1 1 0 001 1h1" stroke="currentColor" stroke-width="1.2"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-sm extract-remove" data-index="${i}" title="Remover">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             </button>
           </div>
         </div>
-        <div class="selection-card-text">${sel.text.replace(/\n/g, '<br>')}</div>
-        <div class="selection-card-footer">
-          <span class="selection-time">${Utils.formatDateTime(sel.timestamp)}</span>
+        <div class="extract-card-text">${ext.text.replace(/\n/g, '<br>')}</div>
+        <div class="extract-card-footer">
+          <span class="extract-time">${Utils.formatDateTime(ext.timestamp)}</span>
         </div>
       </div>
     `).join('');
 
-    list.querySelectorAll('.selection-card').forEach(card => {
+    container.querySelectorAll('.extract-card').forEach(card => {
       card.addEventListener('click', () => {
-        this.activeSelection = parseInt(card.dataset.index);
-        this.renderSelections();
-        this.scrollToSelection(this.selections[this.activeSelection].page);
+        this.activeExtract = parseInt(card.dataset.index);
+        this.renderExtracts();
+        this._scrollToPage(this.extracts[this.activeExtract].page);
       });
     });
 
-    list.querySelectorAll('.selection-goto').forEach(btn => {
+    container.querySelectorAll('.extract-goto').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.scrollToSelection(parseInt(btn.dataset.page));
+        this._scrollToPage(parseInt(btn.dataset.page));
       });
     });
 
-    list.querySelectorAll('.selection-remove').forEach(btn => {
+    container.querySelectorAll('.extract-copy').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const idx = parseInt(btn.dataset.index);
-        this.selections.splice(idx, 1);
-        if (this.activeSelection >= this.selections.length) {
-          this.activeSelection = Math.max(0, this.selections.length - 1);
+        const ext = this.extracts[parseInt(btn.dataset.index)];
+        navigator.clipboard.writeText(ext.text).catch(() => {});
+      });
+    });
+
+    container.querySelectorAll('.extract-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.extracts.splice(parseInt(btn.dataset.index), 1);
+        if (this.activeExtract >= this.extracts.length) {
+          this.activeExtract = Math.max(0, this.extracts.length - 1);
         }
-        this.renderSelections();
+        this.renderExtracts();
       });
     });
 
-    const activeCard = list.querySelector('.selection-active');
-    if (activeCard) activeCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const active = container.querySelector('.extract-active');
+    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   },
 
-  navigateSelection(dir) {
-    if (!this.selections.length) return;
-    this.activeSelection = (this.activeSelection + dir + this.selections.length) % this.selections.length;
-    this.renderSelections();
-    this.scrollToSelection(this.selections[this.activeSelection].page);
-  },
-
-  scrollToSelection(page) {
+  _scrollToPage(page) {
     const wrapper = Utils.$(`.pdf-page-wrapper[data-page="${page}"]`);
     if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  },
-
-  clearSelections() {
-    this.selections = [];
-    this.activeSelection = -1;
-    this.renderSelections();
-  },
-
-  zoom(delta) {
-    this.scale = Math.max(0.5, Math.min(3, this.scale + delta));
-    Utils.$('#zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
-    this.renderAllPages();
-  },
-
-  scrollDown() {
-    const container = Utils.$('#pdf-container');
-    if (!container) return;
-    container.scrollBy({ top: container.clientHeight * 0.8, behavior: 'smooth' });
-  },
-
-  scrollUp() {
-    const container = Utils.$('#pdf-container');
-    if (!container) return;
-    container.scrollBy({ top: -container.clientHeight * 0.8, behavior: 'smooth' });
   },
 
   _onScroll() {
@@ -480,37 +569,65 @@ const Reader = {
     Utils.$('#page-info').textContent = `${this.currentPage} / ${this.totalPages}`;
   },
 
+  zoom(delta) {
+    this.scale = Math.max(0.5, Math.min(3, this.scale + delta));
+    Utils.$('#zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
+    this.renderAllPages();
+  },
+
+  /* ==========================================
+     CHAT
+     ========================================== */
   sendChat() {
     const input = Utils.$('#chat-input');
     const text = input.value.trim();
     if (!text) return;
 
-    this.chatMessages.push({ role: 'user', content: text });
+    const contextText = this.extracts.map(e => e.text).join('\n\n---\n\n');
+
+    this.chatMessages.push({
+      role: 'user',
+      content: text,
+      context: contextText || null,
+    });
     input.value = '';
-    this.renderChatMessages();
+    input.style.height = 'auto';
+    this.renderChat();
 
     setTimeout(() => {
-      this.chatMessages.push({
-        role: 'assistant',
-        content: `Esta e uma resposta placeholder para: "${text}"\n\nA integracao com IA sera implementada em uma sprint futura.`,
-      });
-      this.renderChatMessages();
+      let reply = `Esta e uma resposta placeholder para: "${text}"`;
+      if (contextText) {
+        reply += `\n\nContexto extraido do PDF:\n"${contextText.substring(0, 200)}..."`;
+      }
+      reply += `\n\nA integracao com IA sera implementada em uma sprint futura.`;
+      this.chatMessages.push({ role: 'assistant', content: reply });
+      this.renderChat();
     }, 800);
   },
 
-  renderChatMessages() {
-    const container = Utils.$('#interaction-content');
-    if (!container || !this.chatMessages.length) return;
+  renderChat() {
+    const container = Utils.$('#chat-messages');
+    if (!container) return;
 
-    let html = this.selections.length ? this._renderSelectionsHTML() : '';
-    html += this.chatMessages.map(msg => `
+    if (!this.chatMessages.length) {
+      container.innerHTML = `
+        <div class="chat-empty">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M6 8a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2H12l-4 4v-4H8a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <p>Pergunte sobre o documento</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = this.chatMessages.map(msg => `
       <div class="chat-message chat-${msg.role}">
         <div class="chat-avatar">${msg.role === 'user' ? 'Voce' : 'IA'}</div>
         <div class="chat-bubble">${msg.content.replace(/\n/g, '<br>')}</div>
       </div>
     `).join('');
 
-    container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
   },
 
