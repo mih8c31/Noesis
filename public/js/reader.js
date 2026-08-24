@@ -147,13 +147,19 @@ const Reader = {
 
     try {
       await this.waitForPdfjs();
-      const loadingTask = pdfjsLib.getDocument({ url: signedUrl, withCredentials: false });
+
+      const res = await fetch(signedUrl);
+      if (!res.ok) throw new Error(`Falha ao baixar PDF (${res.status})`);
+      const data = await res.arrayBuffer();
+
+      const loadingTask = pdfjsLib.getDocument({ data });
       this.pdf = await loadingTask.promise;
       this.totalPages = this.pdf.numPages;
       this.updatePageInfo();
       await this.renderPage();
       Utils.$('#pdf-loading').style.display = 'none';
     } catch (err) {
+      console.error('PDF load error:', err);
       Utils.$('#pdf-loading').innerHTML = `<p class="text-error">Erro ao carregar PDF: ${err.message}</p>`;
     }
   },
