@@ -232,6 +232,7 @@ const Reader = {
 
       const pageContainer = document.createElement('div');
       pageContainer.className = 'pdf-page-container';
+      pageContainer.dataset.page = i;
 
       const canvas = document.createElement('canvas');
       canvas.className = 'pdf-page-canvas';
@@ -311,27 +312,30 @@ const Reader = {
      AREA SELECTION
      ========================================== */
   _initAreaSelection() {
-    const container = Utils.$('#pdf-container');
-    this._selHandler = null;
+    if (this._selHandler) {
+      document.removeEventListener('mousemove', this._selHandler.onMove);
+      document.removeEventListener('mouseup', this._selHandler.onUp);
+    }
 
-    container.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      const pageContainer = e.target.closest('.pdf-page-container');
-      if (!pageContainer) return;
+    const pages = Utils.$$('.pdf-page-container');
+    pages.forEach((pageContainer) => {
+      pageContainer.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
 
-      const rect = pageContainer.getBoundingClientRect();
-      this._selecting = true;
-      this._selStart = {
-        x: e.clientX,
-        y: e.clientY,
-        pageContainer,
-        pageRect: rect,
-      };
+        const rect = pageContainer.getBoundingClientRect();
+        this._selecting = true;
+        this._selStart = {
+          x: e.clientX,
+          y: e.clientY,
+          pageContainer,
+          pageRect: rect,
+        };
 
-      const overlay = Utils.$('#selection-overlay');
-      overlay.style.display = 'none';
-      overlay.innerHTML = '';
-      e.preventDefault();
+        const overlay = Utils.$('#selection-overlay');
+        overlay.style.display = 'none';
+        overlay.innerHTML = '';
+      });
     });
 
     const onMove = (e) => {
@@ -340,26 +344,19 @@ const Reader = {
       const { pageRect } = this._selStart;
       const overlay = Utils.$('#selection-overlay');
 
-      const x = Math.min(this._selStart.x, e.clientX);
-      const y = Math.min(this._selStart.y, e.clientY);
-      const w = Math.abs(e.clientX - this._selStart.x);
-      const h = Math.abs(e.clientY - this._selStart.y);
+      const x1 = Math.max(pageRect.left, Math.min(this._selStart.x, e.clientX));
+      const y1 = Math.max(pageRect.top, Math.min(this._selStart.y, e.clientY));
+      const x2 = Math.min(pageRect.right, Math.max(this._selStart.x, e.clientX));
+      const y2 = Math.min(pageRect.bottom, Math.max(this._selStart.y, e.clientY));
 
-      if (w < 5 && h < 5) return;
-
-      const left = Math.max(pageRect.left, x);
-      const top = Math.max(pageRect.top, y);
-      const right = Math.min(pageRect.right, x + w);
-      const bottom = Math.min(pageRect.bottom, y + h);
-
-      const drawW = right - left;
-      const drawH = bottom - top;
+      const drawW = x2 - x1;
+      const drawH = y2 - y1;
 
       if (drawW < 3 || drawH < 3) return;
 
       overlay.style.display = 'block';
-      overlay.style.left = `${left}px`;
-      overlay.style.top = `${top}px`;
+      overlay.style.left = `${x1}px`;
+      overlay.style.top = `${y1}px`;
       overlay.style.width = `${drawW}px`;
       overlay.style.height = `${drawH}px`;
       overlay.innerHTML = `<div class="sel-rect" style="width:100%;height:100%"></div>`;
@@ -372,13 +369,13 @@ const Reader = {
       const overlay = Utils.$('#selection-overlay');
       const { pageContainer, pageRect, x: startX, y: startY } = this._selStart;
 
+      overlay.style.display = 'none';
+      overlay.innerHTML = '';
+
       const x1 = Math.max(pageRect.left, Math.min(startX, e.clientX));
       const y1 = Math.max(pageRect.top, Math.min(startY, e.clientY));
       const x2 = Math.min(pageRect.right, Math.max(startX, e.clientX));
       const y2 = Math.min(pageRect.bottom, Math.max(startY, e.clientY));
-
-      overlay.style.display = 'none';
-      overlay.innerHTML = '';
 
       const drawW = x2 - x1;
       const drawH = y2 - y1;
@@ -387,7 +384,7 @@ const Reader = {
       const localX = x1 - pageRect.left;
       const localY = y1 - pageRect.top;
 
-      const pageNum = parseInt(pageContainer.closest('.pdf-page-wrapper').dataset.page);
+      const pageNum = parseInt(pageContainer.dataset.page);
       this._extractTextFromArea(pageContainer, localX, localY, drawW, drawH, pageNum);
     };
 
