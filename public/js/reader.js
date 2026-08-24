@@ -312,6 +312,7 @@ const Reader = {
      ========================================== */
   _initAreaSelection() {
     const container = Utils.$('#pdf-container');
+    this._selHandler = null;
 
     container.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
@@ -321,10 +322,10 @@ const Reader = {
       const rect = pageContainer.getBoundingClientRect();
       this._selecting = true;
       this._selStart = {
-        x: e.clientX - rect.left + container.scrollLeft,
-        y: e.clientY - rect.top + container.scrollTop,
+        x: e.clientX,
+        y: e.clientY,
         pageContainer,
-        containerRect: rect,
+        pageRect: rect,
       };
 
       const overlay = Utils.$('#selection-overlay');
@@ -333,63 +334,66 @@ const Reader = {
       e.preventDefault();
     });
 
-    container.addEventListener('mousemove', (e) => {
+    const onMove = (e) => {
       if (!this._selecting) return;
 
-      const { pageContainer, containerRect } = this._selStart;
-      const currentX = e.clientX - containerRect.left + container.scrollLeft;
-      const currentY = e.clientY - containerRect.top + container.scrollTop;
+      const { pageRect } = this._selStart;
+      const overlay = Utils.$('#selection-overlay');
 
-      const x = Math.min(this._selStart.x, currentX);
-      const y = Math.min(this._selStart.y, currentY);
-      const w = Math.abs(currentX - this._selStart.x);
-      const h = Math.abs(currentY - this._selStart.y);
+      const x = Math.min(this._selStart.x, e.clientX);
+      const y = Math.min(this._selStart.y, e.clientY);
+      const w = Math.abs(e.clientX - this._selStart.x);
+      const h = Math.abs(e.clientY - this._selStart.y);
 
       if (w < 5 && h < 5) return;
 
-      const overlay = Utils.$('#selection-overlay');
+      const left = Math.max(pageRect.left, x);
+      const top = Math.max(pageRect.top, y);
+      const right = Math.min(pageRect.right, x + w);
+      const bottom = Math.min(pageRect.bottom, y + h);
+
+      const drawW = right - left;
+      const drawH = bottom - top;
+
+      if (drawW < 3 || drawH < 3) return;
+
       overlay.style.display = 'block';
-      overlay.style.left = `${containerRect.left}px`;
-      overlay.style.top = `${containerRect.top}px`;
-      overlay.style.width = `${containerRect.width}px`;
-      overlay.style.height = `${containerRect.height}px`;
+      overlay.style.left = `${left}px`;
+      overlay.style.top = `${top}px`;
+      overlay.style.width = `${drawW}px`;
+      overlay.style.height = `${drawH}px`;
+      overlay.innerHTML = `<div class="sel-rect" style="width:100%;height:100%"></div>`;
+    };
 
-      overlay.innerHTML = `
-        <div class="sel-rect" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>
-      `;
-    });
-
-    const endSelection = (e) => {
+    const onUp = (e) => {
       if (!this._selecting) return;
       this._selecting = false;
 
       const overlay = Utils.$('#selection-overlay');
-      const selRect = overlay.querySelector('.sel-rect');
-      if (!selRect) { overlay.style.display = 'none'; return; }
+      const { pageContainer, pageRect, x: startX, y: startY } = this._selStart;
 
-      const x = parseFloat(selRect.style.left);
-      const y = parseFloat(selRect.style.top);
-      const w = parseFloat(selRect.style.width);
-      const h = parseFloat(selRect.style.height);
-
-      if (w < 10 || h < 10) {
-        overlay.style.display = 'none';
-        overlay.innerHTML = '';
-        return;
-      }
-
-      const pageContainer = this._selStart.pageContainer;
-      const pageNum = parseInt(pageContainer.closest('.pdf-page-wrapper').dataset.page);
-      this._extractTextFromArea(pageContainer, x, y, w, h, pageNum);
+      const x1 = Math.max(pageRect.left, Math.min(startX, e.clientX));
+      const y1 = Math.max(pageRect.top, Math.min(startY, e.clientY));
+      const x2 = Math.min(pageRect.right, Math.max(startX, e.clientX));
+      const y2 = Math.min(pageRect.bottom, Math.max(startY, e.clientY));
 
       overlay.style.display = 'none';
       overlay.innerHTML = '';
+
+      const drawW = x2 - x1;
+      const drawH = y2 - y1;
+      if (drawW < 10 || drawH < 10) return;
+
+      const localX = x1 - pageRect.left;
+      const localY = y1 - pageRect.top;
+
+      const pageNum = parseInt(pageContainer.closest('.pdf-page-wrapper').dataset.page);
+      this._extractTextFromArea(pageContainer, localX, localY, drawW, drawH, pageNum);
     };
 
-    container.addEventListener('mouseup', endSelection);
-    document.addEventListener('mouseup', () => {
-      if (this._selecting) endSelection();
-    });
+    this._selHandler = { onMove, onUp };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   },
 
   _extractTextFromArea(pageContainer, selX, selY, selW, selH, pageNum) {
@@ -633,6 +637,10 @@ const Reader = {
 
   destroy() {
     if (this._keyHandler) document.removeEventListener('keydown', this._keyHandler);
+    if (this._selHandler) {
+      document.removeEventListener('mousemove', this._selHandler.onMove);
+      document.removeEventListener('mouseup', this._selHandler.onUp);
+    }
     this.pdf = null;
   },
 
