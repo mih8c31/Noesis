@@ -535,9 +535,15 @@ input, button, textarea {
   margin-bottom: 0;
 }
 
+.pdf-page-container {
+  position: relative;
+  display: inline-block;
+}
+
 .pdf-page-canvas {
   box-shadow: var(--shadow);
   max-width: 100%;
+  display: block;
 }
 
 .pdf-page-label {
@@ -549,6 +555,139 @@ input, button, textarea {
 
 .pdf-page-gap {
   flex-shrink: 0;
+  height: 12px;
+}
+
+/* ============================================
+   TEXT SELECTION LAYER
+   ============================================ */
+.text-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0.25;
+  line-height: 1;
+}
+
+.text-layer-span {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  transform-origin: 0% 0%;
+  cursor: text;
+}
+
+.text-layer-span::selection,
+.text-layer-span::-moz-selection {
+  background: rgba(108, 92, 231, 0.35);
+  color: transparent;
+}
+
+/* ============================================
+   EXTRACT POPUP
+   ============================================ */
+.extract-popup {
+  position: absolute;
+  transform: translateX(-50%) translateY(-100%);
+  z-index: 100;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+}
+
+.extract-popup .btn {
+  white-space: nowrap;
+}
+
+/* ============================================
+   SELECTIONS
+   ============================================ */
+.selection-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sel-counter {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: center;
+}
+
+.sel-clear-btn {
+  color: var(--error);
+  font-size: 0.8rem;
+  margin-left: 4px;
+}
+
+.selections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.selection-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.selection-card:hover {
+  border-color: var(--border-light);
+}
+
+.selection-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.selection-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.selection-page {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.selection-card-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.selection-card-text {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  max-height: 120px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.selection-card-footer {
+  margin-top: 8px;
+}
+
+.selection-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
 }
 
 .pdf-loading {

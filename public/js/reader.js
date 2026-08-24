@@ -6,14 +6,17 @@ const Reader = {
   documentId: null,
   document: null,
   chatMessages: [],
+  selections: [],
+  activeSelection: -1,
   _keyHandler: null,
-  _wheelHandler: null,
 
   async render(docId) {
     this.documentId = docId;
     this.currentPage = 1;
     this.totalPages = 0;
     this.chatMessages = [];
+    this.selections = [];
+    this.activeSelection = -1;
 
     const app = Utils.$('#app');
     app.innerHTML = `
@@ -44,17 +47,24 @@ const Reader = {
 
           <div class="reader-interaction-panel">
             <div class="interaction-header">
-              <h3>Interação</h3>
+              <h3>Interacao</h3>
+              <div id="selection-nav" class="selection-nav" style="display:none">
+                <button id="sel-prev" class="btn btn-ghost btn-sm" title="Anterior">&laquo;</button>
+                <span id="sel-counter" class="sel-counter">0/0</span>
+                <button id="sel-next" class="btn btn-ghost btn-sm" title="Proximo">&raquo;</button>
+                <button id="sel-clear" class="btn btn-ghost btn-sm sel-clear-btn" title="Limpar todos">Limpar</button>
+              </div>
             </div>
             <div id="interaction-content" class="interaction-content">
-              <div class="interaction-placeholder">
+              <div class="interaction-placeholder" id="interaction-placeholder">
                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
                   <rect x="6" y="6" width="36" height="36" rx="8" stroke="currentColor" stroke-width="2"/>
                   <path d="M16 18h16M16 24h12M16 30h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
-                <p>Selecione uma pagina para interagir com o conteudo.</p>
-                <p class="text-muted">Use o chat abaixo para fazer perguntas sobre o documento.</p>
+                <p>Selecione texto no PDF para extrair trechos.</p>
+                <p class="text-muted">Selecione um paragrafo e clique em "Extrair" para salvar aqui.</p>
               </div>
+              <div id="selections-list" class="selections-list"></div>
             </div>
           </div>
         </div>
@@ -67,6 +77,13 @@ const Reader = {
             </button>
           </div>
         </div>
+      </div>
+
+      <div id="extract-popup" class="extract-popup" style="display:none">
+        <button id="extract-btn" class="btn btn-primary btn-sm">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2h10M2 7h7M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Extrair trecho
+        </button>
       </div>
     `;
 
@@ -83,6 +100,10 @@ const Reader = {
     Utils.$('#zoom-in').addEventListener('click', () => this.zoom(0.2));
     Utils.$('#zoom-out').addEventListener('click', () => this.zoom(-0.2));
 
+    Utils.$('#sel-prev').addEventListener('click', () => this.navigateSelection(-1));
+    Utils.$('#sel-next').addEventListener('click', () => this.navigateSelection(1));
+    Utils.$('#sel-clear').addEventListener('click', () => this.clearSelections());
+
     Utils.$('#chat-send').addEventListener('click', () => this.sendChat());
     Utils.$('#chat-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -91,9 +112,16 @@ const Reader = {
       }
     });
 
+    Utils.$('#extract-btn').addEventListener('click', () => this.extractSelection());
+
+    document.addEventListener('mousedown', (e) => {
+      if (!e.target.closest('.extract-popup') && !e.target.closest('.text-layer')) {
+        Utils.$('#extract-popup').style.display = 'none';
+      }
+    });
+
     document.addEventListener('keydown', this._keyHandler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      const container = Utils.$('#pdf-container');
       if (e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault();
         this.scrollDown();
@@ -103,32 +131,6 @@ const Reader = {
         this.scrollUp();
       }
     });
-  },
-
-  scrollDown() {
-    const container = Utils.$('#pdf-container');
-    if (!container) return;
-    const pageH = this._getPageHeight();
-    container.scrollBy({ top: pageH, behavior: 'smooth' });
-  },
-
-  scrollUp() {
-    const container = Utils.$('#pdf-container');
-    if (!container) return;
-    const pageH = this._getPageHeight();
-    container.scrollBy({ top: -pageH, behavior: 'smooth' });
-  },
-
-  _getPageHeight() {
-    if (!this.pdf) return 400;
-    const canvas = Utils.$('.pdf-page-canvas');
-    return canvas ? canvas.offsetHeight + 12 : 400;
-  },
-
-  zoom(delta) {
-    this.scale = Math.max(0.5, Math.min(3, this.scale + delta));
-    Utils.$('#zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
-    this.renderAllPages();
   },
 
   _status(msg) {
@@ -207,13 +209,10 @@ const Reader = {
     if (!this.pdf) return;
 
     const container = Utils.$('#pdf-container');
-    const loading = Utils.$('#pdf-loading');
-
     container.innerHTML = '';
     container.style.flexDirection = 'column';
     container.style.alignItems = 'center';
 
-    const gap = 12;
     for (let i = 1; i <= this.totalPages; i++) {
       const wrapper = document.createElement('div');
       wrapper.className = 'pdf-page-wrapper';
@@ -224,32 +223,34 @@ const Reader = {
       pageLabel.textContent = i;
       wrapper.appendChild(pageLabel);
 
+      const pageContainer = document.createElement('div');
+      pageContainer.className = 'pdf-page-container';
+
       const canvas = document.createElement('canvas');
       canvas.className = 'pdf-page-canvas';
-      wrapper.appendChild(canvas);
+      pageContainer.appendChild(canvas);
 
+      wrapper.appendChild(pageContainer);
       container.appendChild(wrapper);
 
       if (i < this.totalPages) {
         const sep = document.createElement('div');
         sep.className = 'pdf-page-gap';
-        sep.style.height = `${gap}px`;
         container.appendChild(sep);
       }
 
       try {
-        await this._renderPageOnCanvas(i, canvas);
+        await this._renderPageWithTextLayer(i, pageContainer, canvas);
       } catch (err) {
         console.error(`[Reader] page ${i} error:`, err);
       }
     }
 
-    if (loading) loading.style.display = 'none';
-
+    Utils.$('#pdf-loading').style.display = 'none';
     container.addEventListener('scroll', () => this._onScroll());
   },
 
-  async _renderPageOnCanvas(pageNum, canvas) {
+  async _renderPageWithTextLayer(pageNum, pageContainer, canvas) {
     const page = await this.pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale: this.scale });
 
@@ -258,33 +259,214 @@ const Reader = {
     canvas.height = viewport.height * dpr;
     canvas.style.width = `${viewport.width}px`;
     canvas.style.height = `${viewport.height}px`;
+    pageContainer.style.width = `${viewport.width}px`;
+    pageContainer.style.height = `${viewport.height}px`;
 
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
-
     await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const textContent = await page.getTextContent();
+    const textLayer = document.createElement('div');
+    textLayer.className = 'text-layer';
+    textLayer.dataset.page = pageNum;
+
+    textContent.items.forEach((item) => {
+      if (!item.str || !item.str.trim()) return;
+
+      const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+
+      const span = document.createElement('span');
+      span.textContent = item.str;
+      span.className = 'text-layer-span';
+
+      const fontSize = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+      span.style.left = `${tx[4]}px`;
+      span.style.top = `${tx[5] - fontSize}px`;
+      span.style.fontSize = `${fontSize}px`;
+      span.style.fontFamily = item.fontName ? item.fontName : 'sans-serif';
+
+      if (item.width > 0) {
+        const actualWidth = item.width * viewport.scale;
+        span.style.letterSpacing = item.str.length > 1
+          ? `${(actualWidth / item.str.length - fontSize * 0.5) / fontSize}em`
+          : '0';
+      }
+
+      textLayer.appendChild(span);
+    });
+
+    textLayer.addEventListener('mouseup', (e) => this._onTextSelection(e, pageNum));
+    pageContainer.appendChild(textLayer);
+  },
+
+  _onTextSelection(e, pageNum) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+      return;
+    }
+
+    const text = sel.toString().trim();
+    if (!text) return;
+
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    sel.removeAllRanges();
+
+    const popup = Utils.$('#extract-popup');
+    popup.style.display = 'flex';
+    popup.style.left = `${rect.left + rect.width / 2}px`;
+    popup.style.top = `${rect.top - 8 + window.scrollY}px`;
+    popup.dataset.text = text;
+    popup.dataset.page = pageNum;
+  },
+
+  extractSelection() {
+    const popup = Utils.$('#extract-popup');
+    const text = popup.dataset.text;
+    const page = parseInt(popup.dataset.page);
+
+    if (!text) return;
+
+    const existing = this.selections.find(s => s.text === text && s.page === page);
+    if (!existing) {
+      this.selections.push({
+        id: Date.now(),
+        text,
+        page,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    popup.style.display = 'none';
+    window.getSelection().removeAllRanges();
+    this.activeSelection = this.selections.length - 1;
+    this.renderSelections();
+  },
+
+  renderSelections() {
+    const list = Utils.$('#selections-list');
+    const placeholder = Utils.$('#interaction-placeholder');
+    const nav = Utils.$('#selection-nav');
+
+    if (!this.selections.length) {
+      if (placeholder) placeholder.style.display = '';
+      if (nav) nav.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (nav) nav.style.display = 'flex';
+
+    Utils.$('#sel-counter').textContent = `${this.activeSelection + 1}/${this.selections.length}`;
+
+    list.innerHTML = this.selections.map((sel, i) => `
+      <div class="selection-card ${i === this.activeSelection ? 'selection-active' : ''}" data-index="${i}">
+        <div class="selection-card-header">
+          <span class="selection-page">Pag. ${sel.page}</span>
+          <div class="selection-card-actions">
+            <button class="btn btn-ghost btn-sm selection-goto" data-page="${sel.page}" title="Ir para pagina">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 3l3 4-3 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-sm selection-remove" data-index="${i}" title="Remover">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="selection-card-text">${sel.text.replace(/\n/g, '<br>')}</div>
+        <div class="selection-card-footer">
+          <span class="selection-time">${Utils.formatDateTime(sel.timestamp)}</span>
+        </div>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.selection-card').forEach(card => {
+      card.addEventListener('click', () => {
+        this.activeSelection = parseInt(card.dataset.index);
+        this.renderSelections();
+        this.scrollToSelection(this.selections[this.activeSelection].page);
+      });
+    });
+
+    list.querySelectorAll('.selection-goto').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.scrollToSelection(parseInt(btn.dataset.page));
+      });
+    });
+
+    list.querySelectorAll('.selection-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.index);
+        this.selections.splice(idx, 1);
+        if (this.activeSelection >= this.selections.length) {
+          this.activeSelection = Math.max(0, this.selections.length - 1);
+        }
+        this.renderSelections();
+      });
+    });
+
+    const activeCard = list.querySelector('.selection-active');
+    if (activeCard) activeCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  },
+
+  navigateSelection(dir) {
+    if (!this.selections.length) return;
+    this.activeSelection = (this.activeSelection + dir + this.selections.length) % this.selections.length;
+    this.renderSelections();
+    this.scrollToSelection(this.selections[this.activeSelection].page);
+  },
+
+  scrollToSelection(page) {
+    const wrapper = Utils.$(`.pdf-page-wrapper[data-page="${page}"]`);
+    if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
+
+  clearSelections() {
+    this.selections = [];
+    this.activeSelection = -1;
+    this.renderSelections();
+  },
+
+  zoom(delta) {
+    this.scale = Math.max(0.5, Math.min(3, this.scale + delta));
+    Utils.$('#zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
+    this.renderAllPages();
+  },
+
+  scrollDown() {
+    const container = Utils.$('#pdf-container');
+    if (!container) return;
+    container.scrollBy({ top: container.clientHeight * 0.8, behavior: 'smooth' });
+  },
+
+  scrollUp() {
+    const container = Utils.$('#pdf-container');
+    if (!container) return;
+    container.scrollBy({ top: -container.clientHeight * 0.8, behavior: 'smooth' });
   },
 
   _onScroll() {
     const container = Utils.$('#pdf-container');
     if (!container) return;
-
-    const canvases = Utils.$$('.pdf-page-canvas');
-    if (!canvases.length) return;
+    const wrappers = Utils.$$('.pdf-page-wrapper');
+    if (!wrappers.length) return;
 
     const containerRect = container.getBoundingClientRect();
     const center = containerRect.top + containerRect.height / 2;
-
     let closest = 1;
     let minDist = Infinity;
 
-    canvases.forEach((canvas, i) => {
-      const rect = canvas.getBoundingClientRect();
-      const canvasCenter = rect.top + rect.height / 2;
-      const dist = Math.abs(canvasCenter - center);
+    wrappers.forEach((w) => {
+      const rect = w.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const dist = Math.abs(mid - center);
       if (dist < minDist) {
         minDist = dist;
-        closest = i + 1;
+        closest = parseInt(w.dataset.page);
       }
     });
 
@@ -295,8 +477,7 @@ const Reader = {
   },
 
   updatePageInfo() {
-    const info = `${this.currentPage} / ${this.totalPages}`;
-    Utils.$('#page-info').textContent = info;
+    Utils.$('#page-info').textContent = `${this.currentPage} / ${this.totalPages}`;
   },
 
   sendChat() {
@@ -306,29 +487,30 @@ const Reader = {
 
     this.chatMessages.push({ role: 'user', content: text });
     input.value = '';
-
-    this.renderInteraction();
+    this.renderChatMessages();
 
     setTimeout(() => {
       this.chatMessages.push({
         role: 'assistant',
         content: `Esta e uma resposta placeholder para: "${text}"\n\nA integracao com IA sera implementada em uma sprint futura.`,
       });
-      this.renderInteraction();
+      this.renderChatMessages();
     }, 800);
   },
 
-  renderInteraction() {
+  renderChatMessages() {
     const container = Utils.$('#interaction-content');
-    if (!container) return;
+    if (!container || !this.chatMessages.length) return;
 
-    container.innerHTML = this.chatMessages.map(msg => `
+    let html = this.selections.length ? this._renderSelectionsHTML() : '';
+    html += this.chatMessages.map(msg => `
       <div class="chat-message chat-${msg.role}">
         <div class="chat-avatar">${msg.role === 'user' ? 'Voce' : 'IA'}</div>
         <div class="chat-bubble">${msg.content.replace(/\n/g, '<br>')}</div>
       </div>
     `).join('');
 
+    container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
   },
 
