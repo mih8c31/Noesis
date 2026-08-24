@@ -21,10 +21,9 @@ function initRouter() {
       if (!supabase.isAuthenticated) { router.navigate('/login'); return; }
       Documents.renderDashboard();
     })
-    .on('/reader/:id', () => {
+    .on('/reader/:id', (params) => {
       if (!supabase.isAuthenticated) { router.navigate('/login'); return; }
-      const id = router.currentPath.split('/reader/')[1];
-      if (id) Reader.render(id);
+      if (params.id) Reader.render(params.id);
     })
     .on('/', () => {
       if (supabase.isAuthenticated) router.navigate('/dashboard');
