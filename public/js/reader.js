@@ -317,43 +317,56 @@ const Reader = {
     if (this._selHandler) {
       document.removeEventListener('mousemove', this._selHandler.onMove);
       document.removeEventListener('mouseup', this._selHandler.onUp);
+      document.removeEventListener('touchmove', this._selHandler.onTouchMove);
+      document.removeEventListener('touchend', this._selHandler.onTouchEnd);
+      document.removeEventListener('touchcancel', this._selHandler.onTouchEnd);
     }
 
     const pages = Utils.$$('.pdf-page-container');
     pages.forEach((pageContainer) => {
-      pageContainer.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        e.preventDefault();
-
+      const start = (clientX, clientY) => {
         const rect = pageContainer.getBoundingClientRect();
         this._selecting = true;
-        this._selStart = {
-          x: e.clientX,
-          y: e.clientY,
-          pageContainer,
-          pageRect: rect,
-        };
-
+        this._selStart = { x: clientX, y: clientY, pageContainer, pageRect: rect };
         const overlay = Utils.$('#selection-overlay');
         overlay.style.display = 'none';
         overlay.innerHTML = '';
+      };
+
+      pageContainer.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        start(e.clientX, e.clientY);
       });
+
+      pageContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        start(t.clientX, t.clientY);
+      }, { passive: false });
     });
+
+    const getCoords = (e) => {
+      if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    };
 
     const onMove = (e) => {
       if (!this._selecting) return;
-
+      if (e.cancelable) e.preventDefault();
+      const { x: cx, y: cy } = getCoords(e);
       const { pageRect } = this._selStart;
       const overlay = Utils.$('#selection-overlay');
 
-      const x1 = Math.max(pageRect.left, Math.min(this._selStart.x, e.clientX));
-      const y1 = Math.max(pageRect.top, Math.min(this._selStart.y, e.clientY));
-      const x2 = Math.min(pageRect.right, Math.max(this._selStart.x, e.clientX));
-      const y2 = Math.min(pageRect.bottom, Math.max(this._selStart.y, e.clientY));
+      const x1 = Math.max(pageRect.left, Math.min(this._selStart.x, cx));
+      const y1 = Math.max(pageRect.top, Math.min(this._selStart.y, cy));
+      const x2 = Math.min(pageRect.right, Math.max(this._selStart.x, cx));
+      const y2 = Math.min(pageRect.bottom, Math.max(this._selStart.y, cy));
 
       const drawW = x2 - x1;
       const drawH = y2 - y1;
-
       if (drawW < 3 || drawH < 3) return;
 
       overlay.style.display = 'block';
@@ -368,16 +381,17 @@ const Reader = {
       if (!this._selecting) return;
       this._selecting = false;
 
+      const { x: ex, y: ey } = getCoords(e);
       const overlay = Utils.$('#selection-overlay');
       const { pageContainer, pageRect, x: startX, y: startY } = this._selStart;
 
       overlay.style.display = 'none';
       overlay.innerHTML = '';
 
-      const x1 = Math.max(pageRect.left, Math.min(startX, e.clientX));
-      const y1 = Math.max(pageRect.top, Math.min(startY, e.clientY));
-      const x2 = Math.min(pageRect.right, Math.max(startX, e.clientX));
-      const y2 = Math.min(pageRect.bottom, Math.max(startY, e.clientY));
+      const x1 = Math.max(pageRect.left, Math.min(startX, ex));
+      const y1 = Math.max(pageRect.top, Math.min(startY, ey));
+      const x2 = Math.min(pageRect.right, Math.max(startX, ex));
+      const y2 = Math.min(pageRect.bottom, Math.max(startY, ey));
 
       const drawW = x2 - x1;
       const drawH = y2 - y1;
@@ -390,9 +404,12 @@ const Reader = {
       this._extractTextFromArea(pageContainer, localX, localY, drawW, drawH, pageNum);
     };
 
-    this._selHandler = { onMove, onUp };
+    this._selHandler = { onMove, onUp, onTouchMove: onMove, onTouchEnd: onUp };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+    document.addEventListener('touchcancel', onUp);
   },
 
   _extractTextFromArea(pageContainer, selX, selY, selW, selH, pageNum) {
@@ -403,24 +420,23 @@ const Reader = {
     const selectedSpans = [];
 
     spans.forEach((span) => {
-      const spanRect = {
-        left: parseFloat(span.style.left),
-        top: parseFloat(span.style.top),
-        right: parseFloat(span.style.left) + span.offsetWidth,
-        bottom: parseFloat(span.style.top) + span.offsetHeight,
-      };
+      const spanLeft = parseFloat(span.style.left);
+      const spanTop = parseFloat(span.style.top);
+      const spanW = span.offsetWidth;
+      const spanH = span.offsetHeight;
 
       const overlaps =
-        spanRect.left < selX + selW &&
-        spanRect.right > selX &&
-        spanRect.top < selY + selH &&
-        spanRect.bottom > selY;
+        spanLeft < selX + selW &&
+        spanLeft + spanW > selX &&
+        spanTop < selY + selH &&
+        spanTop + spanH > selY;
 
       if (overlaps && span.dataset.text) {
         selectedSpans.push({
           text: span.dataset.text,
-          top: spanRect.top,
-          left: spanRect.left,
+          top: spanTop,
+          left: spanLeft,
+          height: spanH,
         });
       }
     });
@@ -429,17 +445,34 @@ const Reader = {
 
     selectedSpans.sort((a, b) => a.top - b.top || a.left - b.left);
 
-    let result = '';
-    let lastTop = -Infinity;
+    const lines = [];
+    let currentLine = [];
+    let lineTop = null;
+    let lineHeight = 0;
+
     selectedSpans.forEach((s) => {
-      if (Math.abs(s.top - lastTop) > 5) {
-        if (result) result += '\n';
+      if (lineTop === null) {
+        currentLine.push(s);
+        lineTop = s.top;
+        lineHeight = s.height;
       } else {
-        result += ' ';
+        const threshold = Math.max(lineHeight, s.height) * 0.5;
+        if (Math.abs(s.top - lineTop) <= threshold) {
+          currentLine.push(s);
+        } else {
+          lines.push(currentLine);
+          currentLine = [s];
+          lineTop = s.top;
+          lineHeight = s.height;
+        }
       }
-      result += s.text;
-      lastTop = s.top;
     });
+    if (currentLine.length) lines.push(currentLine);
+
+    const result = lines.map((line) => {
+      line.sort((a, b) => a.left - b.left);
+      return line.map((s) => s.text).join(' ');
+    }).join('\n');
 
     if (!result.trim()) return;
 
@@ -639,6 +672,9 @@ const Reader = {
     if (this._selHandler) {
       document.removeEventListener('mousemove', this._selHandler.onMove);
       document.removeEventListener('mouseup', this._selHandler.onUp);
+      document.removeEventListener('touchmove', this._selHandler.onTouchMove);
+      document.removeEventListener('touchend', this._selHandler.onTouchEnd);
+      document.removeEventListener('touchcancel', this._selHandler.onTouchEnd);
     }
     this.pdf = null;
   },
